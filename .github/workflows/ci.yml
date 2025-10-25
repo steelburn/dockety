@@ -1,0 +1,75 @@
+name: CI — build images
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-images:
+    name: Build frontend & backend images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: dockety-backend:pr-${{ github.run_id }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: dockety-frontend:pr-${{ github.run_id }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test (run images and probe /api/health)
+        run: |
+          set -euo pipefail
+          CI_NET=dockety-ci-${{ github.run_id }}
+          BACKEND_IMG=dockety-backend:pr-${{ github.run_id }}
+          FRONTEND_IMG=dockety-frontend:pr-${{ github.run_id }}
+
+          echo "Creating network $CI_NET"
+          docker network create "$CI_NET" || true
+
+          echo "Starting backend (name=backend)"
+          docker run -d --name backend --network "$CI_NET" "$BACKEND_IMG"
+
+          echo "Starting frontend (name=frontend) and mapping port 8080"
+          docker run -d --name frontend --network "$CI_NET" -p 8080:80 "$FRONTEND_IMG"
+
+          echo "Waiting for frontend /api/health to return 200"
+          SECONDS=0
+          until curl -sSf http://localhost:8080/api/health >/dev/null; do
+            if [ $SECONDS -gt 60 ]; then
+              echo "Timed out waiting for /api/health" >&2
+              docker logs frontend || true
+              docker logs backend || true
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "Smoke test passed"
+
+        # Always clean up containers and network
+      - name: Cleanup smoke-test resources
+        if: always()
+        run: |
+          docker rm -f frontend backend || true
+          docker network rm dockety-ci-${{ github.run_id }} || true
