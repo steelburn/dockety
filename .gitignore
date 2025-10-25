@@ -1,0 +1,14 @@
+node_modules/
+dist/
+/.env
+/.venv
+/*.log
+package-lock.json
+.DS_Store
+.idea/
+.vscode/
+/.cache
+/.parcel-cache
+/.turbo
+coverage/
+data/
