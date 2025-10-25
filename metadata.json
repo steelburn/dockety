@@ -1,0 +1,5 @@
+{
+  "name": "Dockety",
+  "description": "Dockety: A dashboard to monitor and manage multiple Docker hosts. It provides an overview of your system, containers, images, volumes, and networks with a clean, responsive interface.",
+  "requestFramePermissions": []
+}

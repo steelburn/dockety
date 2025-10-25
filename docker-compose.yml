@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dockety_backend
+    volumes:
+      # Mount the Docker socket to allow the backend to manage Docker
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persist the SQLite database
+      - dockety_data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dockety_frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  dockety_data:
