@@ -71,6 +71,15 @@ app.post('/api/system/prune', asyncHandler(async (req, res) => {
     res.json(report);
 }));
 
+// --- Health checks ---
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString(), uptime: process.uptime() });
+});
+
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString(), uptime: process.uptime() });
+});
+
 // --- Error Handling ---
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error(err.stack);
