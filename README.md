@@ -37,20 +37,17 @@ Dockety is architected as a multi-container application and is deployed using Do
 
 2.  **Choose your deployment method:**
 
-    #### Option A: Build Locally (Recommended for Development)
+    #### Option A: Build Locally (Development)
     ```bash
-    chmod +x run.sh
-    ./run.sh
+    docker-compose -f docker-compose.dev.yml up -d
     ```
-    This script will use `docker-compose` to build and start the entire application stack locally.
+    This builds the application from source code locally.
 
-    #### Option B: Pull Pre-built Images (Faster Deployment)
+    #### Option B: Pull Pre-built Images (Production)
     ```bash
-    # Edit docker-compose.yml and uncomment the image lines for both services
-    # Then run:
     docker-compose up -d
     ```
-    This will pull the latest images from GitHub Container Registry and start the application.
+    This pulls the latest images from GitHub Container Registry and starts the application quickly.
 
 3.  **Access Dockety:**
     Open your web browser and navigate to `http://localhost:8090`.
@@ -90,6 +87,13 @@ Dockety runs as two services:
 - **`frontend`**: A lightweight Nginx container that serves the static React application on port 8090
 - **`backend`**: A Node.js server using Express.js on port 3001. It connects to Docker daemons via mounted socket or TCP/HTTP and uses a SQLite database for storing host configurations
 
+### Docker Compose Files
+
+Dockety provides two Docker Compose configurations:
+
+- **`docker-compose.yml`**: Production deployment using pre-built images from GitHub Container Registry
+- **`docker-compose.dev.yml`**: Development deployment that builds images locally from source code
+
 The backend supports multiple Docker host connections simultaneously, allowing you to monitor and manage containers across different environments. All API requests from the frontend are proxied through the Nginx server to the backend, ensuring seamless communication without CORS issues.
 
 ### Host Management
@@ -112,8 +116,12 @@ Images are available at:
 - `ghcr.io/steelburn/dockety-backend:latest`
 
 ### Stopping the Application
-To stop both the frontend and backend containers, run:
+To stop the containers, run:
 ```bash
+# For production deployment
 docker-compose down
+
+# For development deployment
+docker-compose -f docker-compose.dev.yml down
 ```
 This will stop the containers but will preserve your SQLite database in the `data` volume. To remove the database volume as well, use `docker-compose down -v`.
