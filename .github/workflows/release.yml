@@ -126,11 +126,12 @@ jobs:
 
       - name: Upload release artifacts
         if: github.event_name == 'release'
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: |
+            release-notes.md
+            docker-compose.yml
+            README.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./release-notes.md
-          asset_name: release-notes-${{ steps.meta.outputs.tag_name }}.md
-          asset_content_type: text/markdown
