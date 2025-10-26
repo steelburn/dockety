@@ -6,11 +6,13 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 COPY index.html ./
 COPY tsconfig.json ./
+COPY vite.config.ts ./
 COPY App.tsx index.tsx ./
 # copy source tree (excluding backend via .dockerignore if present)
 COPY components ./components
 COPY hooks ./hooks
 COPY services ./services
+COPY public ./public
 COPY types.ts ./
 
 RUN npm ci --omit=dev || npm install
