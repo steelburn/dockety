@@ -7,10 +7,10 @@ const MenuIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height
 
 
 interface HeaderProps {
-    hosts: Host[];
-    selectedHost: Host | null;
-    setSelectedHost: (host: Host) => void;
-    toggleSidebar: () => void;
+  hosts: Host[];
+  selectedHost: Host | null;
+  setSelectedHost: (host: Host) => void;
+  toggleSidebar: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ hosts, selectedHost, setSelectedHost, toggleSidebar }) => {
@@ -28,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({ hosts, selectedHost, setSelected
           <MenuIcon />
         </button>
         <div className="flex items-center space-x-2">
+          <img src="/logo.svg" alt="Dockety Logo" className="h-8 w-auto" />
           <ServerIcon />
           <span className="text-gray-500 dark:text-gray-400">Host:</span>
           {hosts.length > 0 && selectedHost ? (
