@@ -31,7 +31,9 @@ jobs:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/dockety-backend:pr-${{ github.run_id }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/dockety-backend:pr-${{ github.run_id }}
+            ghcr.io/${{ github.repository_owner }}/dockety-backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -41,6 +43,8 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/dockety-frontend:pr-${{ github.run_id }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/dockety-frontend:pr-${{ github.run_id }}
+            ghcr.io/${{ github.repository_owner }}/dockety-frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

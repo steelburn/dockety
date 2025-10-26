@@ -16,6 +16,7 @@ Dockety is a clean, modern, and responsive dashboard for monitoring and managing
 - **System Maintenance**: Clean up your system by pruning unused containers, images, and volumes
 - **Light & Dark Themes**: Switch between themes to suit your preference
 - **Sort & Filter**: All tables are fully sortable and filterable for easy navigation
+- **CI/CD Ready**: Automated builds and deployments with GitHub Actions and Container Registry
 
 ## 🚀 Getting Started
 
@@ -28,23 +29,28 @@ Dockety is architected as a multi-container application and is deployed using Do
 
 ### Installation
 
-1.  **Clone the repository (or download the files):**
+1.  **Clone the repository:**
     ```bash
-    git clone https://your-repo-url/dockety.git
+    git clone https://github.com/steelburn/dockety.git
     cd dockety
     ```
 
-2.  **Use the run script:**
-    A convenient `run.sh` script is provided to build and start the entire application stack.
+2.  **Choose your deployment method:**
 
+    #### Option A: Build Locally (Recommended for Development)
     ```bash
     chmod +x run.sh
     ./run.sh
     ```
-    This script will use `docker-compose` to:
-    - Build the `frontend` and `backend` Docker images.
-    - Create a persistent volume for the SQLite database.
-    - Start both containers. The backend connects to your host's Docker socket to manage Docker.
+    This script will use `docker-compose` to build and start the entire application stack locally.
+
+    #### Option B: Pull Pre-built Images (Faster Deployment)
+    ```bash
+    # Edit docker-compose.yml and uncomment the image lines for both services
+    # Then run:
+    docker-compose up -d
+    ```
+    This will pull the latest images from GitHub Container Registry and start the application.
 
 3.  **Access Dockety:**
     Open your web browser and navigate to `http://localhost:8090`.
@@ -93,6 +99,17 @@ The application maintains a persistent SQLite database of configured Docker host
 - **Remote**: Connects via TCP/HTTP to remote Docker daemons with configurable TLS and proxy settings
 
 Docker client instances are cached per host for optimal performance and connection management.
+
+### CI/CD Pipeline
+
+Dockety includes a GitHub Actions CI pipeline that:
+- Builds Docker images for both frontend and backend services
+- Pushes images to GitHub Container Registry (ghcr.io) with both `:latest` and unique PR tags
+- Provides automated testing and deployment capabilities
+
+Images are available at:
+- `ghcr.io/steelburn/dockety-frontend:latest`
+- `ghcr.io/steelburn/dockety-backend:latest`
 
 ### Stopping the Application
 To stop both the frontend and backend containers, run:

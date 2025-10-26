@@ -2,9 +2,12 @@ version: '3.8'
 
 services:
   backend:
+    # Option 1: Build locally (default)
     build:
       context: ./backend
       dockerfile: Dockerfile
+    # Option 2: Pull from GitHub Container Registry (uncomment to use)
+    # image: ghcr.io/steelburn/dockety-backend:latest
     container_name: dockety_backend
     volumes:
       # Mount the Docker socket to allow the backend to manage Docker
@@ -14,9 +17,12 @@ services:
     restart: unless-stopped
 
   frontend:
+    # Option 1: Build locally (default)
     build:
       context: .
       dockerfile: Dockerfile
+    # Option 2: Pull from GitHub Container Registry (uncomment to use)
+    # image: ghcr.io/steelburn/dockety-frontend:latest
     container_name: dockety_frontend
     ports:
       - "8090:80"
