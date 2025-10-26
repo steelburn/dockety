@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTable } from '../hooks/useTable';
 import { Host, Container, ContainerState } from '../types';
 import { dockerService } from '../services/dockerService';
@@ -14,6 +14,11 @@ const Trash2Icon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" heig
 const FileTextIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>;
 const TerminalIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>;
 const ExternalLinkIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>;
+const InfoIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>;
+const ActivityIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
+const CheckSquareIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>;
+const SquareIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>;
+const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
 
 // --- Helper Components ---
 const StateBadge: React.FC<{ state: ContainerState }> = ({ state }) => {
@@ -29,9 +34,9 @@ const StateBadge: React.FC<{ state: ContainerState }> = ({ state }) => {
 };
 
 const ActionButton: React.FC<{ onClick: () => void; children: React.ReactNode; className: string; disabled?: boolean; title: string }> = ({ onClick, children, className, disabled, title }) => (
-    <button onClick={onClick} disabled={disabled} title={title} className={`p-2 rounded-md transition-colors ${className} disabled:opacity-50 disabled:cursor-not-allowed`}>
-        {children}
-    </button>
+  <button onClick={onClick} disabled={disabled} title={title} className={`p-2 rounded-md transition-colors ${className} disabled:opacity-50 disabled:cursor-not-allowed`}>
+    {children}
+  </button>
 );
 
 const SortableHeader: React.FC<{
@@ -67,11 +72,15 @@ export const ContainersView: React.FC<ContainersViewProps> = ({ host }) => {
   const [processing, setProcessing] = useState<Record<string, boolean>>({});
   const [logViewerOpen, setLogViewerOpen] = useState<Container | null>(null);
   const [consoleOpen, setConsoleOpen] = useState<Container | null>(null);
+  const [containerStats, setContainerStats] = useState<Record<string, { cpuPercent: number; memoryUsage: number }>>({});
   const { items, requestSort, sortConfig, searchTerm, handleSearchChange } = useTable(containers, ['name', 'image']);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setContainers([]); // Clear containers when fetching new data
+    setContainerStats({}); // Clear stats when switching hosts
     try {
       const data = await dockerService.getContainers(host.id);
       setContainers(data);
@@ -83,9 +92,73 @@ export const ContainersView: React.FC<ContainersViewProps> = ({ host }) => {
     }
   }, [host]);
 
+  const fetchStats = useCallback(async () => {
+    const runningContainers = containers.filter(c => c.state === ContainerState.RUNNING);
+    if (runningContainers.length === 0) return;
+
+    const statsPromises = runningContainers.map(async (container) => {
+      try {
+        const stats = await dockerService.getContainerStats(host.id, container.id);
+        if (stats && stats.memory_stats && stats.cpu_stats) {
+          const memoryUsage = (stats.memory_stats.usage || 0) / 1024 / 1024; // Convert to MB
+
+          const cpuDelta = stats.cpu_stats.cpu_usage.total_usage - (stats.precpu_stats?.cpu_usage?.total_usage || 0);
+          const systemDelta = stats.cpu_stats.system_cpu_usage - (stats.precpu_stats?.system_cpu_usage || 0);
+          const cpuPercent = systemDelta > 0 ? (cpuDelta / systemDelta) * (stats.cpu_stats.online_cpus || 1) * 100 : 0;
+
+          return {
+            id: container.id,
+            stats: {
+              cpuPercent: Math.min(cpuPercent, 100),
+              memoryUsage: Math.round(memoryUsage * 10) / 10 // Round to 1 decimal place
+            }
+          };
+        }
+      } catch (error) {
+        console.error(`Failed to fetch stats for container ${container.id}:`, error);
+      }
+      return null;
+    });
+
+    try {
+      const results = await Promise.all(statsPromises);
+      const newStats: Record<string, { cpuPercent: number; memoryUsage: number }> = {};
+      results.forEach(result => {
+        if (result) {
+          newStats[result.id] = result.stats;
+        }
+      });
+      setContainerStats(newStats);
+    } catch (error) {
+      console.error('Failed to fetch container stats:', error);
+    }
+  }, [containers, host.id]);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    setContainerStats({});
+
+    if (containers.length > 0) {
+      fetchStats();
+      intervalRef.current = setInterval(fetchStats, 5000);
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [containers, fetchStats, host.id]); // Added host.id to dependencies
 
   const handleAction = async (containerId: string, action: () => Promise<void>) => {
     setProcessing(prev => ({ ...prev, [containerId]: true }));
@@ -100,7 +173,7 @@ export const ContainersView: React.FC<ContainersViewProps> = ({ host }) => {
       setProcessing(prev => ({ ...prev, [containerId]: false }));
     }
   };
-  
+
   const openPort = (port: number) => {
     window.open(`http://localhost:${port}`, '_blank', 'noopener,noreferrer');
   };
@@ -115,13 +188,13 @@ export const ContainersView: React.FC<ContainersViewProps> = ({ host }) => {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Containers</h1>
           <div className="flex items-center space-x-2">
             <input
-                type="text"
-                placeholder="Filter containers..."
-                value={searchTerm}
-                onChange={handleSearchChange}
-                className="px-3 py-2 bg-white/50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              type="text"
+              placeholder="Filter containers..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              className="px-3 py-2 bg-white/50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500"
             />
-            <button onClick={() => fetchData()} disabled={loading} className="p-2 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"><RefreshCwIcon/></button>
+            <button onClick={() => fetchData()} disabled={loading} className="p-2 rounded-md bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"><RefreshCwIcon /></button>
           </div>
         </div>
         <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg">
@@ -131,6 +204,7 @@ export const ContainersView: React.FC<ContainersViewProps> = ({ host }) => {
                 <SortableHeader sortKey="name" title="Name" requestSort={requestSort} sortConfig={sortConfig} />
                 <SortableHeader sortKey="state" title="State" requestSort={requestSort} sortConfig={sortConfig} />
                 <SortableHeader sortKey="image" title="Image" requestSort={requestSort} sortConfig={sortConfig} />
+                <th scope="col" className="px-6 py-3 text-xs text-gray-500 dark:text-gray-400 uppercase">Stats</th>
                 <th scope="col" className="px-6 py-3 text-xs text-gray-500 dark:text-gray-400 uppercase">Ports</th>
                 <th scope="col" className="px-6 py-3 text-xs text-gray-500 dark:text-gray-400 uppercase text-right">Actions</th>
               </tr>
@@ -142,33 +216,55 @@ export const ContainersView: React.FC<ContainersViewProps> = ({ host }) => {
                   <td className="px-6 py-4"><StateBadge state={container.state} /></td>
                   <td className="px-6 py-4">{container.image}</td>
                   <td className="px-6 py-4">
-                    {container.ports.length > 0 ? (
-                        container.ports.map(p => (
-                            <div key={`${p.publicPort}-${p.privatePort}`} className="flex items-center space-x-2">
-                                <span className="font-mono text-xs bg-gray-200 dark:bg-gray-700/60 px-2 py-1 rounded-md">
-                                    {p.publicPort ? `${p.publicPort}:${p.privatePort}/${p.type}` : `${p.privatePort}/${p.type}`}
-                                </span>
-                                {p.publicPort && (
-                                    <button onClick={() => openPort(p.publicPort!)} title={`Open port ${p.publicPort}`} className="text-sky-500 dark:text-sky-400 hover:text-sky-600 dark:hover:text-sky-300">
-                                        <ExternalLinkIcon/>
-                                    </button>
-                                )}
-                            </div>
-                        ))
+                    {containerStats[container.id] ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">CPU:</span>
+                          <span className="font-mono text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded">
+                            {containerStats[container.id].cpuPercent.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">MEM:</span>
+                          <span className="font-mono text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded">
+                            {containerStats[container.id].memoryUsage.toFixed(1)}MB
+                          </span>
+                        </div>
+                      </div>
+                    ) : container.state === ContainerState.RUNNING ? (
+                      <span className="text-gray-400 dark:text-gray-500 text-xs">Loading...</span>
                     ) : (
-                        <span className="text-gray-400 dark:text-gray-500">None</span>
+                      <span className="text-gray-400 dark:text-gray-500 text-xs">N/A</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {container.ports.length > 0 ? (
+                      container.ports.map(p => (
+                        <div key={`${p.publicPort}-${p.privatePort}`} className="flex items-center space-x-2">
+                          <span className="font-mono text-xs bg-gray-200 dark:bg-gray-700/60 px-2 py-1 rounded-md">
+                            {p.publicPort ? `${p.publicPort}:${p.privatePort}/${p.type}` : `${p.privatePort}/${p.type}`}
+                          </span>
+                          {p.publicPort && (
+                            <button onClick={() => openPort(p.publicPort!)} title={`Open port ${p.publicPort}`} className="text-sky-500 dark:text-sky-400 hover:text-sky-600 dark:hover:text-sky-300">
+                              <ExternalLinkIcon />
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-gray-400 dark:text-gray-500">None</span>
                     )}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end space-x-2">
                       <ActionButton title="Logs" onClick={() => setLogViewerOpen(container)} className="bg-blue-100 hover:bg-blue-200 text-blue-800 dark:bg-blue-500/20 dark:hover:bg-blue-500/40 dark:text-blue-400" disabled={processing[container.id]}><FileTextIcon /></ActionButton>
-                       <ActionButton title="Console" onClick={() => setConsoleOpen(container)} className="bg-purple-100 hover:bg-purple-200 text-purple-800 dark:bg-purple-500/20 dark:hover:bg-purple-500/40 dark:text-purple-400" disabled={processing[container.id] || container.state !== ContainerState.RUNNING}><TerminalIcon /></ActionButton>
-                      
+                      <ActionButton title="Console" onClick={() => setConsoleOpen(container)} className="bg-purple-100 hover:bg-purple-200 text-purple-800 dark:bg-purple-500/20 dark:hover:bg-purple-500/40 dark:text-purple-400" disabled={processing[container.id] || container.state !== ContainerState.RUNNING}><TerminalIcon /></ActionButton>
+
                       {container.state !== ContainerState.RUNNING && (
-                          <ActionButton title="Start" onClick={() => handleAction(container.id, () => dockerService.startContainer(host.id, container.id))} className="bg-green-100 hover:bg-green-200 text-green-800 dark:bg-green-500/20 dark:hover:bg-green-500/40 dark:text-green-400" disabled={processing[container.id]}><PlayIcon /></ActionButton>
+                        <ActionButton title="Start" onClick={() => handleAction(container.id, () => dockerService.startContainer(host.id, container.id))} className="bg-green-100 hover:bg-green-200 text-green-800 dark:bg-green-500/20 dark:hover:bg-green-500/40 dark:text-green-400" disabled={processing[container.id]}><PlayIcon /></ActionButton>
                       )}
                       {container.state === ContainerState.RUNNING && (
-                          <ActionButton title="Stop" onClick={() => handleAction(container.id, () => dockerService.stopContainer(host.id, container.id))} className="bg-red-100 hover:bg-red-200 text-red-800 dark:bg-red-500/20 dark:hover:bg-red-500/40 dark:text-red-400" disabled={processing[container.id]}><StopIcon /></ActionButton>
+                        <ActionButton title="Stop" onClick={() => handleAction(container.id, () => dockerService.stopContainer(host.id, container.id))} className="bg-red-100 hover:bg-red-200 text-red-800 dark:bg-red-500/20 dark:hover:bg-red-500/40 dark:text-red-400" disabled={processing[container.id]}><StopIcon /></ActionButton>
                       )}
                       <ActionButton title="Restart" onClick={() => handleAction(container.id, () => dockerService.restartContainer(host.id, container.id))} className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 dark:bg-yellow-500/20 dark:hover:bg-yellow-500/40 dark:text-yellow-400" disabled={processing[container.id]}><RefreshCwIcon /></ActionButton>
                       <ActionButton title="Remove" onClick={() => handleAction(container.id, () => dockerService.removeContainer(host.id, container.id))} className="bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-500/20 dark:hover:bg-gray-500/40 dark:text-gray-400" disabled={processing[container.id]}><Trash2Icon /></ActionButton>

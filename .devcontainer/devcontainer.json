@@ -1,0 +1,36 @@
+{
+    "name": "Dockety Development",
+    "dockerFile": "Dockerfile",
+    // Configure tool-specific properties.
+    "customizations": {
+        // Configure properties specific to VS Code.
+        "vscode": {
+            // Add the IDs of extensions you want installed when the container is created.
+            "extensions": [
+                "ms-vscode.vscode-typescript-next",
+                "esbenp.prettier-vscode",
+                "ms-vscode.vscode-json",
+                "bradlc.vscode-tailwindcss",
+                "ms-vscode.vscode-eslint"
+            ]
+        }
+    },
+    // Use 'forwardPorts' to make a list of ports inside the container available locally.
+    "forwardPorts": [
+        3001,
+        5173,
+        8090
+    ],
+    // Use 'postCreateCommand' to run commands after the container is created.
+    "postCreateCommand": "npm install && cd backend && npm install",
+    // Configure tool-specific properties.
+    "remoteUser": "node",
+    // Mount the Docker socket so the application can communicate with Docker
+    "mounts": [
+        "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+    ],
+    // Set environment variables
+    "containerEnv": {
+        "DOCKER_HOST": "unix:///var/run/docker.sock"
+    }
+}

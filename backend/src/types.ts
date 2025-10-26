@@ -4,6 +4,13 @@
 export interface Host {
   id: string;
   name: string;
+  type: 'local' | 'remote';
+  host?: string; // For remote hosts
+  port?: number; // For remote hosts
+  tls?: boolean; // For remote hosts
+  socketProxy?: boolean; // Whether this host uses Docker Socket Proxy (removes API version from paths)
+  status: 'unknown' | 'connected' | 'disconnected' | 'error';
+  lastChecked?: string; // ISO timestamp
 }
 
 export enum ContainerState {

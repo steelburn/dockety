@@ -34,15 +34,15 @@ const App: React.FC = () => {
     try {
       const fetchedHosts = await dockerService.getHosts();
       setHosts(fetchedHosts);
-      
+
       // If no host is selected or selected host is removed, select the first one
       if (fetchedHosts.length > 0) {
-          const currentSelectedStillExists = fetchedHosts.some(h => h.id === selectedHost?.id);
-          if (!currentSelectedStillExists) {
-              setSelectedHost(fetchedHosts[0]);
-          }
+        const currentSelectedStillExists = fetchedHosts.some(h => h.id === selectedHost?.id);
+        if (!currentSelectedStillExists) {
+          setSelectedHost(fetchedHosts[0]);
+        }
       } else {
-          setSelectedHost(null);
+        setSelectedHost(null);
       }
     } catch (error) {
       console.error("Failed to fetch hosts:", error);
@@ -52,20 +52,20 @@ const App: React.FC = () => {
   useEffect(() => {
     fetchHosts();
   }, []); // Only on initial mount
-  
-  const handleAddHost = useCallback(async (name: string) => {
-      await dockerService.addHost(name);
-      await fetchHosts();
+
+  const handleAddHost = useCallback(async (name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean) => {
+    await dockerService.addHost(name, type, host, port, tls, socketProxy);
+    await fetchHosts();
   }, [fetchHosts]);
 
-  const handleUpdateHost = useCallback(async (id: string, name: string) => {
-      await dockerService.updateHost(id, name);
-      await fetchHosts();
+  const handleUpdateHost = useCallback(async (id: string, name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean) => {
+    await dockerService.updateHost(id, name, type, host, port, tls, socketProxy);
+    await fetchHosts();
   }, [fetchHosts]);
-  
+
   const handleRemoveHost = useCallback(async (id: string) => {
-      await dockerService.removeHost(id);
-      await fetchHosts();
+    await dockerService.removeHost(id);
+    await fetchHosts();
   }, [fetchHosts]);
 
   const toggleSidebar = useCallback(() => setIsSidebarOpen(prev => !prev), []);
@@ -74,15 +74,15 @@ const App: React.FC = () => {
     if (!selectedHost) {
       return (
         <div className="p-4 md:p-6">
-            <SystemView 
-              host={selectedHost!} 
-              theme={theme} 
-              setTheme={setTheme}
-              hosts={hosts}
-              onAddHost={handleAddHost}
-              onUpdateHost={handleUpdateHost}
-              onRemoveHost={handleRemoveHost}
-            />
+          <SystemView
+            host={selectedHost!}
+            theme={theme}
+            setTheme={setTheme}
+            hosts={hosts}
+            onAddHost={handleAddHost}
+            onUpdateHost={handleUpdateHost}
+            onRemoveHost={handleRemoveHost}
+          />
         </div>
       );
     }
@@ -101,15 +101,15 @@ const App: React.FC = () => {
       case 'compose':
         return <ComposeView host={selectedHost} />;
       case 'system':
-        return <SystemView 
-                  host={selectedHost} 
-                  theme={theme} 
-                  setTheme={setTheme}
-                  hosts={hosts}
-                  onAddHost={handleAddHost}
-                  onUpdateHost={handleUpdateHost}
-                  onRemoveHost={handleRemoveHost}
-                />;
+        return <SystemView
+          host={selectedHost}
+          theme={theme}
+          setTheme={setTheme}
+          hosts={hosts}
+          onAddHost={handleAddHost}
+          onUpdateHost={handleUpdateHost}
+          onRemoveHost={handleRemoveHost}
+        />;
       default:
         return <div>Not Found</div>;
     }
@@ -117,11 +117,11 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans">
-      <Sidebar currentView={currentView} setView={setCurrentView} isSidebarOpen={isSidebarOpen}/>
+      <Sidebar currentView={currentView} setView={setCurrentView} isSidebarOpen={isSidebarOpen} />
       <main className="flex-1 flex flex-col overflow-hidden">
-        <Header 
-          hosts={hosts} 
-          selectedHost={selectedHost} 
+        <Header
+          hosts={hosts}
+          selectedHost={selectedHost}
           setSelectedHost={setSelectedHost}
           toggleSidebar={toggleSidebar}
         />

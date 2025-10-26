@@ -51,12 +51,12 @@ jobs:
           echo "Starting backend (name=backend)"
           docker run -d --name backend --network "$CI_NET" "$BACKEND_IMG"
 
-          echo "Starting frontend (name=frontend) and mapping port 8080"
-          docker run -d --name frontend --network "$CI_NET" -p 8080:80 "$FRONTEND_IMG"
+          echo "Starting frontend (name=frontend) and mapping port 8090"
+          docker run -d --name frontend --network "$CI_NET" -p 8090:80 "$FRONTEND_IMG"
 
           echo "Waiting for frontend /api/health to return 200"
           SECONDS=0
-          until curl -sSf http://localhost:8080/api/health >/dev/null; do
+          until curl -sSf http://localhost:8090/api/health >/dev/null; do
             if [ $SECONDS -gt 60 ]; then
               echo "Timed out waiting for /api/health" >&2
               docker logs frontend || true
