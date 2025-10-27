@@ -8,6 +8,7 @@ import { ContainersView } from './components/ContainersView';
 import { ImagesView } from './components/ImagesView';
 import { VolumesView } from './components/VolumesView';
 import { NetworksView } from './components/NetworksView';
+import { NetworkMapView } from './components/NetworkMapView';
 import { ComposeView } from './components/ComposeView';
 import { HostsView } from './components/HostsView';
 import { SystemView } from './components/SystemView';
@@ -175,6 +176,8 @@ const App: React.FC = () => {
         return <VolumesView host={selectedHost} />;
       case 'networks':
         return <NetworksView host={selectedHost} />;
+      case 'network-map':
+        return <NetworkMapView host={selectedHost} />;
       case 'compose':
         return <ComposeView host={selectedHost} />;
       case 'hosts':

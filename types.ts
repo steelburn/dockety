@@ -120,4 +120,4 @@ export interface PruneReport {
 }
 
 
-export type ViewType = 'dashboard' | 'containers' | 'images' | 'volumes' | 'networks' | 'compose' | 'hosts' | 'system' | 'about';
+export type ViewType = 'dashboard' | 'containers' | 'images' | 'volumes' | 'networks' | 'network-map' | 'compose' | 'hosts' | 'system' | 'about';
