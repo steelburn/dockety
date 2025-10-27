@@ -9,7 +9,7 @@ Key architecture
 
 How to run
 - Recommended (Docker): make `run.sh` executable and run it. It prefers Docker if available and will build/run the app with docker-compose. Useful flags: `--no-cache`, `--no-docker` (force local flow), `--image NAME`.
-- Local dev: (frontend) `npm install && npm run dev` at repo root; (backend) `cd backend && npm install && npm run dev` (backend listens on 3001).
+- Local dev: (frontend) `npm install && npm run dev` at repo root (runs on port 3001); (backend) `cd backend && npm install && npm run dev` (runs on port 3002 with frontend proxy configured).
 
 Important conventions & gotchas
 - All frontend → backend API calls use an optional `hostId` query param. When absent the default host id is `local-docker` (see `backend/src/database.ts`).
@@ -17,12 +17,14 @@ Important conventions & gotchas
 - The backend prevents deleting the last host (see `databaseService.removeHost`) — treat host removal carefully in automation.
 - Editing Compose files from the UI is intentionally a no-op; the backend does not modify running compose files (`updateComposeFile()` is a no-op).
 - When running containerized, backend needs access to `/var/run/docker.sock` for local Docker host operations. Remote hosts are supported via TCP (with optional TLS) or via a socket proxy.
+- Network Map uses React Flow for visualization: nodes are draggable, orphaned resources appear on the right side, layout prevents overlaps.
 
 Key files to inspect/edit
 - Backend entry & routes: `backend/src/server.ts`
 - Docker client + multi-host logic: `backend/src/dockerApi.ts`
 - Host DB & migrations: `backend/src/database.ts` (data path `./data/dockety.db`, default host id `local-docker`)
 - Frontend API layer: `services/dockerService.ts` (shows expected endpoints and error format)
+- Network Map visualization: `components/NetworkMapView.tsx` (React Flow implementation with draggable nodes, intelligent layout)
 - Run/build helper: `run.sh` and `docker-compose.yml`
 
 Common API examples (useful snippets)
