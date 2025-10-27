@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { dockerService } from '../services/dockerService';
+import { OwnerOnboardingWizard } from './OwnerOnboardingWizard';
 
 interface LoginProps {
     onLogin: (token: string, user: { id: string; username: string; role: string; isApproved: boolean }) => void;
@@ -11,6 +12,25 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     const [isRegister, setIsRegister] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showOnboardingWizard, setShowOnboardingWizard] = useState(false);
+    const [checkingFirstUser, setCheckingFirstUser] = useState(true);
+
+    useEffect(() => {
+        const checkFirstUser = async () => {
+            try {
+                const response = await dockerService.isFirstUser();
+                if (response.isFirstUser) {
+                    setShowOnboardingWizard(true);
+                }
+            } catch (error) {
+                console.error('Failed to check first user status:', error);
+            } finally {
+                setCheckingFirstUser(false);
+            }
+        };
+
+        checkFirstUser();
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -29,6 +49,23 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             setLoading(false);
         }
     };
+
+    // Show loading spinner while checking first user status
+    if (checkingFirstUser) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Show onboarding wizard for first user
+    if (showOnboardingWizard) {
+        return <OwnerOnboardingWizard onComplete={onLogin} />;
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">

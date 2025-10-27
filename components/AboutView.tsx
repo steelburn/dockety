@@ -4,7 +4,7 @@ export const AboutView: React.FC = () => {
     return (
         <div className="p-4 md:p-6 space-y-6">
             <div className="text-center">
-                <img src="/logo.svg" alt="Dockety Logo" className="h-16 w-auto mx-auto mb-4" />
+                <img src="/Dockety Logo.svg" alt="Dockety Logo" className="h-16 w-auto mx-auto mb-4" />
                 <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">Dockety</h1>
                 <p className="text-xl text-gray-600 dark:text-gray-400 mb-8">Docker Container Management Made Easy</p>
             </div>

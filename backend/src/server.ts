@@ -76,6 +76,11 @@ const asyncHandler = (fn: (req: express.Request, res: express.Response, next: ex
         Promise.resolve(fn(req, res, next)).catch(next);
 
 // --- Authentication ---
+app.get('/auth/is-first-user', asyncHandler(async (req, res) => {
+    const userCount = databaseService.getUserCount();
+    res.json({ isFirstUser: userCount === 0 });
+}));
+
 app.post('/auth/register', asyncHandler(async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {

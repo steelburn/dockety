@@ -44,6 +44,11 @@ const getHeadersForHost = async (hostId: string, additionalHeaders: Record<strin
 
 
 export const dockerService = {
+    isFirstUser: async (): Promise<{ isFirstUser: boolean }> => {
+        const response = await fetch(`${API_BASE}/auth/is-first-user`);
+        return handleResponse<{ isFirstUser: boolean }>(response);
+    },
+
     login: async (username: string, password: string): Promise<{ token: string; user: { id: string; username: string; role: string; isApproved: boolean } }> => {
         const response = await fetch(`${API_BASE}/auth/login`, {
             method: 'POST',
