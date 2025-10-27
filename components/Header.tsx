@@ -11,9 +11,11 @@ interface HeaderProps {
   selectedHost: Host | null;
   setSelectedHost: (host: Host) => void;
   toggleSidebar: () => void;
+  user: { id: string; username: string } | null;
+  onLogout: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ hosts, selectedHost, setSelectedHost, toggleSidebar }) => {
+export const Header: React.FC<HeaderProps> = ({ hosts, selectedHost, setSelectedHost, toggleSidebar, user, onLogout }) => {
   const handleHostChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const host = hosts.find(h => h.id === event.target.value);
     if (host) {
@@ -28,7 +30,6 @@ export const Header: React.FC<HeaderProps> = ({ hosts, selectedHost, setSelected
           <MenuIcon />
         </button>
         <div className="flex items-center space-x-2">
-          <img src="/logo.svg" alt="Dockety Logo" className="h-8 w-auto" />
           <ServerIcon />
           <span className="text-gray-500 dark:text-gray-400">Host:</span>
           {hosts.length > 0 && selectedHost ? (
@@ -46,8 +47,18 @@ export const Header: React.FC<HeaderProps> = ({ hosts, selectedHost, setSelected
           )}
         </div>
       </div>
-      <div>
-        {/* Placeholder for other header items like user profile */}
+      <div className="flex items-center space-x-4">
+        {user && (
+          <>
+            <span className="text-gray-900 dark:text-white">Welcome, {user.username}</span>
+            <button
+              onClick={onLogout}
+              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+            >
+              Logout
+            </button>
+          </>
+        )}
       </div>
     </header>
   );

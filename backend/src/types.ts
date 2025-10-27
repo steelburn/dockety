@@ -1,6 +1,13 @@
 // This mirrors the frontend types for consistency.
 // In a larger project, this could be a shared package.
 
+export interface User {
+  id: string;
+  username: string;
+  passwordHash: string;
+  createdAt: string;
+}
+
 export interface Host {
   id: string;
   name: string;
@@ -9,6 +16,7 @@ export interface Host {
   port?: number; // For remote hosts
   tls?: boolean; // For remote hosts
   socketProxy?: boolean; // Whether this host uses Docker Socket Proxy (removes API version from paths)
+  apiKey?: string; // API key for socket proxy authentication
   status: 'unknown' | 'connected' | 'disconnected' | 'error';
   lastChecked?: string; // ISO timestamp
 }

@@ -11,8 +11,8 @@ const ServerIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" heig
 
 interface HostManagerProps {
     hosts: Host[];
-    onAddHost: (name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean) => Promise<void>;
-    onUpdateHost: (id: string, name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean) => Promise<void>;
+    onAddHost: (name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean, apiKey?: string) => Promise<void>;
+    onUpdateHost: (id: string, name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean, apiKey?: string) => Promise<void>;
     onRemoveHost: (id: string) => Promise<void>;
 }
 
@@ -23,6 +23,7 @@ export const HostManager: React.FC<HostManagerProps> = ({ hosts, onAddHost, onUp
     const [newHostPort, setNewHostPort] = useState<number | ''>('');
     const [newHostTls, setNewHostTls] = useState(false);
     const [newHostSocketProxy, setNewHostSocketProxy] = useState(false);
+    const [newHostApiKey, setNewHostApiKey] = useState('');
     const [testConnectionStatus, setTestConnectionStatus] = useState<{ loading: boolean; status?: 'connected' | 'disconnected' | 'error'; message?: string }>({ loading: false });
     const [editingHostId, setEditingHostId] = useState<string | null>(null);
     const [editingHostName, setEditingHostName] = useState('');
@@ -31,6 +32,7 @@ export const HostManager: React.FC<HostManagerProps> = ({ hosts, onAddHost, onUp
     const [editingHostPort, setEditingHostPort] = useState<number | ''>('');
     const [editingHostTls, setEditingHostTls] = useState(false);
     const [editingHostSocketProxy, setEditingHostSocketProxy] = useState(false);
+    const [editingHostApiKey, setEditingHostApiKey] = useState('');
     const [processing, setProcessing] = useState<Record<string, boolean>>({});
 
     const handleAddSubmit = async (e: React.FormEvent) => {
@@ -44,7 +46,8 @@ export const HostManager: React.FC<HostManagerProps> = ({ hosts, onAddHost, onUp
             newHostType === 'remote' ? newHostAddress : undefined,
             newHostType === 'remote' && newHostPort ? newHostPort : undefined,
             newHostType === 'remote' ? newHostTls : undefined,
-            newHostType === 'remote' ? newHostSocketProxy : undefined
+            newHostType === 'remote' ? newHostSocketProxy : undefined,
+            newHostType === 'remote' && newHostSocketProxy ? newHostApiKey : undefined
         );
         setNewHostName('');
         setNewHostType('local');
@@ -52,6 +55,7 @@ export const HostManager: React.FC<HostManagerProps> = ({ hosts, onAddHost, onUp
         setNewHostPort('');
         setNewHostTls(false);
         setNewHostSocketProxy(false);
+        setNewHostApiKey('');
         setTestConnectionStatus({ loading: false });
         setProcessing(prev => ({ ...prev, add: false }));
     };
@@ -64,6 +68,7 @@ export const HostManager: React.FC<HostManagerProps> = ({ hosts, onAddHost, onUp
         setEditingHostPort(host.port || '');
         setEditingHostTls(host.tls || false);
         setEditingHostSocketProxy(host.socketProxy || false);
+        setEditingHostApiKey(host.apiKey || '');
     };
 
     const handleEditCancel = () => {
@@ -74,6 +79,7 @@ export const HostManager: React.FC<HostManagerProps> = ({ hosts, onAddHost, onUp
         setEditingHostPort('');
         setEditingHostTls(false);
         setEditingHostSocketProxy(false);
+        setEditingHostApiKey('');
     };
 
     const handleEditSave = async () => {
@@ -86,7 +92,8 @@ export const HostManager: React.FC<HostManagerProps> = ({ hosts, onAddHost, onUp
             editingHostType === 'remote' ? editingHostAddress : undefined,
             editingHostType === 'remote' && editingHostPort ? editingHostPort : undefined,
             editingHostType === 'remote' ? editingHostTls : undefined,
-            editingHostType === 'remote' ? editingHostSocketProxy : undefined
+            editingHostType === 'remote' ? editingHostSocketProxy : undefined,
+            editingHostType === 'remote' && editingHostSocketProxy ? editingHostApiKey : undefined
         );
         setEditingHostId(null);
         setEditingHostName('');
@@ -95,6 +102,7 @@ export const HostManager: React.FC<HostManagerProps> = ({ hosts, onAddHost, onUp
         setEditingHostPort('');
         setEditingHostTls(false);
         setEditingHostSocketProxy(false);
+        setEditingHostApiKey('');
         setProcessing(prev => ({ ...prev, [editingHostId]: false }));
     };
 
@@ -119,7 +127,8 @@ export const HostManager: React.FC<HostManagerProps> = ({ hosts, onAddHost, onUp
                 newHostType === 'remote' ? newHostAddress : undefined,
                 newHostType === 'remote' && newHostPort ? newHostPort : undefined,
                 newHostType === 'remote' ? newHostTls : undefined,
-                newHostType === 'remote' ? newHostSocketProxy : undefined
+                newHostType === 'remote' ? newHostSocketProxy : undefined,
+                newHostType === 'remote' && newHostSocketProxy ? newHostApiKey : undefined
             );
             setTestConnectionStatus({
                 loading: false,
@@ -234,6 +243,19 @@ export const HostManager: React.FC<HostManagerProps> = ({ hosts, onAddHost, onUp
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     Enable if connecting through a Docker Socket Proxy that removes API version from paths
                                 </p>
+                                {newHostSocketProxy && (
+                                    <div className="mt-2">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Key</label>
+                                        <input
+                                            type="password"
+                                            value={newHostApiKey}
+                                            onChange={(e) => setNewHostApiKey(e.target.value)}
+                                            placeholder="Enter API key for socket proxy authentication"
+                                            className="w-full px-3 py-2 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                            disabled={!!processing['add']}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </>
                     )}
@@ -250,8 +272,8 @@ export const HostManager: React.FC<HostManagerProps> = ({ hosts, onAddHost, onUp
                         </button>
                         {testConnectionStatus.status && (
                             <div className={`text-sm px-3 py-1 rounded-md ${testConnectionStatus.status === 'connected'
-                                    ? 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-400'
-                                    : 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-400'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-400'
+                                : 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-400'
                                 }`}>
                                 {testConnectionStatus.message}
                             </div>
@@ -342,6 +364,18 @@ export const HostManager: React.FC<HostManagerProps> = ({ hosts, onAddHost, onUp
                                                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                                         Enable if connecting through a Docker Socket Proxy that removes API version from paths
                                                     </p>
+                                                    {editingHostSocketProxy && (
+                                                        <div className="mt-2">
+                                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Key</label>
+                                                            <input
+                                                                type="password"
+                                                                value={editingHostApiKey}
+                                                                onChange={(e) => setEditingHostApiKey(e.target.value)}
+                                                                placeholder="Enter API key for socket proxy authentication"
+                                                                className="w-full px-2 py-1 bg-white dark:bg-gray-600 border border-blue-500 text-sm rounded-md"
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </>
                                         )}

@@ -9,7 +9,9 @@ import { ImagesView } from './components/ImagesView';
 import { VolumesView } from './components/VolumesView';
 import { NetworksView } from './components/NetworksView';
 import { ComposeView } from './components/ComposeView';
+import { HostsView } from './components/HostsView';
 import { SystemView } from './components/SystemView';
+import { Login } from './components/Login';
 
 export type Theme = 'light' | 'dark';
 
@@ -19,16 +21,42 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('theme') as Theme) || 'dark');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<{ id: string; username: string } | null>(null);
 
   useEffect(() => {
-    const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    if (token && userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setToken(token);
+        setUser(user);
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.error('Failed to parse stored user data:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
     }
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+  }, []);
+
+  const handleLogin = useCallback((newToken: string, newUser: { id: string; username: string }) => {
+    setToken(newToken);
+    setUser(newUser);
+    setIsAuthenticated(true);
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('user', JSON.stringify(newUser));
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    setToken(null);
+    setUser(null);
+    setIsAuthenticated(false);
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  }, []);
 
   const fetchHosts = useCallback(async () => {
     try {
@@ -82,6 +110,7 @@ const App: React.FC = () => {
             onAddHost={handleAddHost}
             onUpdateHost={handleUpdateHost}
             onRemoveHost={handleRemoveHost}
+            currentUser={user}
           />
         </div>
       );
@@ -100,6 +129,8 @@ const App: React.FC = () => {
         return <NetworksView host={selectedHost} />;
       case 'compose':
         return <ComposeView host={selectedHost} />;
+      case 'hosts':
+        return <HostsView />;
       case 'system':
         return <SystemView
           host={selectedHost}
@@ -109,11 +140,16 @@ const App: React.FC = () => {
           onAddHost={handleAddHost}
           onUpdateHost={handleUpdateHost}
           onRemoveHost={handleRemoveHost}
+          currentUser={user}
         />;
       default:
         return <div>Not Found</div>;
     }
   };
+
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans">
@@ -124,6 +160,8 @@ const App: React.FC = () => {
           selectedHost={selectedHost}
           setSelectedHost={setSelectedHost}
           toggleSidebar={toggleSidebar}
+          user={user}
+          onLogout={handleLogout}
         />
         <div className="flex-1 overflow-y-auto">
           {renderView()}

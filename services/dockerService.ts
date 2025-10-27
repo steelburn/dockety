@@ -22,73 +22,192 @@ const getTextResponse = async (response: Response): Promise<string> => {
     return response.text();
 };
 
+// Helper function to get headers for a host, including API key if socket proxy is enabled
+const getHeadersForHost = async (hostId: string, additionalHeaders: Record<string, string> = {}): Promise<Record<string, string>> => {
+    const hosts = await dockerService.getHosts();
+    const host = hosts.find(h => h.id === hostId);
+
+    const headers = { ...additionalHeaders };
+
+    // Add auth token if available
+    const token = localStorage.getItem('token');
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    if (host?.socketProxy && host?.apiKey) {
+        headers['x-api-key'] = host.apiKey;
+    }
+
+    return headers;
+};
+
 
 export const dockerService = {
+    login: async (username: string, password: string): Promise<{ token: string; user: { id: string; username: string } }> => {
+        const response = await fetch(`${API_BASE}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password }),
+        });
+        return handleResponse<{ token: string; user: { id: string; username: string } }>(response);
+    },
+
+    register: async (username: string, password: string): Promise<{ token: string; user: { id: string; username: string } }> => {
+        const response = await fetch(`${API_BASE}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password }),
+        });
+        return handleResponse<{ token: string; user: { id: string; username: string } }>(response);
+    },
+
+    getUsers: async (): Promise<{ id: string; username: string; createdAt: string }[]> => {
+        const headers = {};
+        const token = localStorage.getItem('token');
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${API_BASE}/users`, { headers });
+        return handleResponse<{ id: string; username: string; createdAt: string }[]>(response);
+    },
+
+    deleteUser: async (userId: string): Promise<void> => {
+        const headers = {};
+        const token = localStorage.getItem('token');
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${API_BASE}/users/${userId}`, {
+            method: 'DELETE',
+            headers,
+        });
+        return handleResponse<void>(response);
+    },
+
+    changePassword: async (currentPassword: string, newPassword: string): Promise<{ message: string }> => {
+        const headers = { 'Content-Type': 'application/json' };
+        const token = localStorage.getItem('token');
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${API_BASE}/auth/change-password`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({ currentPassword, newPassword }),
+        });
+        return handleResponse<{ message: string }>(response);
+    },
+
     getHosts: async (): Promise<Host[]> => {
-        const response = await fetch(`${API_BASE}/hosts`);
+        const headers = {};
+        const token = localStorage.getItem('token');
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${API_BASE}/hosts`, { headers });
         return handleResponse<Host[]>(response);
     },
 
-    addHost: async (name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean): Promise<Host> => {
+    addHost: async (name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean, apiKey?: string): Promise<Host> => {
+        const headers = { 'Content-Type': 'application/json' };
+        const token = localStorage.getItem('token');
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
         const response = await fetch(`${API_BASE}/hosts`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, type, host, port, tls, socketProxy }),
+            headers,
+            body: JSON.stringify({ name, type, host, port, tls, socketProxy, apiKey }),
         });
         return handleResponse<Host>(response);
     },
 
-    updateHost: async (id: string, name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean): Promise<Host> => {
+    updateHost: async (id: string, name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean, apiKey?: string): Promise<Host> => {
+        const headers = { 'Content-Type': 'application/json' };
+        const token = localStorage.getItem('token');
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
         const response = await fetch(`${API_BASE}/hosts/${id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, type, host, port, tls, socketProxy }),
+            headers,
+            body: JSON.stringify({ name, type, host, port, tls, socketProxy, apiKey }),
         });
         return handleResponse<Host>(response);
     },
 
     removeHost: async (id: string): Promise<void> => {
-        const response = await fetch(`${API_BASE}/hosts/${id}`, { method: 'DELETE' });
+        const headers = {};
+        const token = localStorage.getItem('token');
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${API_BASE}/hosts/${id}`, { method: 'DELETE', headers });
         return handleResponse<void>(response);
     },
 
     getSystemInfo: async (hostId: string): Promise<SystemInfo> => {
-        const response = await fetch(`${API_BASE}/system/info?hostId=${encodeURIComponent(hostId)}`);
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/system/info?hostId=${encodeURIComponent(hostId)}`, {
+            headers,
+        });
         return handleResponse<SystemInfo>(response);
     },
 
     getStats: async (hostId: string): Promise<DockerStats> => {
-        const response = await fetch(`${API_BASE}/system/stats?hostId=${encodeURIComponent(hostId)}`);
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/system/stats?hostId=${encodeURIComponent(hostId)}`, {
+            headers,
+        });
         return handleResponse<DockerStats>(response);
     },
 
     getContainers: async (hostId: string): Promise<Container[]> => {
-        const response = await fetch(`${API_BASE}/containers?hostId=${encodeURIComponent(hostId)}`);
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/containers?hostId=${encodeURIComponent(hostId)}`, {
+            headers,
+        });
         return handleResponse<Container[]>(response);
     },
 
     getImages: async (hostId: string): Promise<Image[]> => {
-        const response = await fetch(`${API_BASE}/images?hostId=${encodeURIComponent(hostId)}`);
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/images?hostId=${encodeURIComponent(hostId)}`, {
+            headers,
+        });
         return handleResponse<Image[]>(response);
     },
 
     getVolumes: async (hostId: string): Promise<Volume[]> => {
-        const response = await fetch(`${API_BASE}/volumes?hostId=${encodeURIComponent(hostId)}`);
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/volumes?hostId=${encodeURIComponent(hostId)}`, {
+            headers,
+        });
         return handleResponse<Volume[]>(response);
     },
 
     getNetworks: async (hostId: string): Promise<Network[]> => {
-        const response = await fetch(`${API_BASE}/networks?hostId=${encodeURIComponent(hostId)}`);
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/networks?hostId=${encodeURIComponent(hostId)}`, {
+            headers,
+        });
         return handleResponse<Network[]>(response);
     },
 
     getComposeProjects: async (hostId: string): Promise<ComposeProject[]> => {
-        const response = await fetch(`${API_BASE}/compose?hostId=${encodeURIComponent(hostId)}`);
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/compose?hostId=${encodeURIComponent(hostId)}`, {
+            headers,
+        });
         return handleResponse<ComposeProject[]>(response);
     },
 
     getContainerLogs: async (hostId: string, containerId: string): Promise<string> => {
-        const response = await fetch(`${API_BASE}/containers/${containerId}/logs?hostId=${encodeURIComponent(hostId)}`);
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/containers/${containerId}/logs?hostId=${encodeURIComponent(hostId)}`, {
+            headers,
+        });
         return getTextResponse(response);
     },
 
@@ -99,50 +218,85 @@ export const dockerService = {
 
     // --- Actions ---
     startContainer: async (hostId: string, containerId: string): Promise<void> => {
-        const response = await fetch(`${API_BASE}/containers/${containerId}/start?hostId=${encodeURIComponent(hostId)}`, { method: 'POST' });
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/containers/${containerId}/start?hostId=${encodeURIComponent(hostId)}`, {
+            method: 'POST',
+            headers,
+        });
         return handleResponse<void>(response);
     },
 
     stopContainer: async (hostId: string, containerId: string): Promise<void> => {
-        const response = await fetch(`${API_BASE}/containers/${containerId}/stop?hostId=${encodeURIComponent(hostId)}`, { method: 'POST' });
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/containers/${containerId}/stop?hostId=${encodeURIComponent(hostId)}`, {
+            method: 'POST',
+            headers,
+        });
         return handleResponse<void>(response);
     },
 
     restartContainer: async (hostId: string, containerId: string): Promise<void> => {
-        const response = await fetch(`${API_BASE}/containers/${containerId}/restart?hostId=${encodeURIComponent(hostId)}`, { method: 'POST' });
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/containers/${containerId}/restart?hostId=${encodeURIComponent(hostId)}`, {
+            method: 'POST',
+            headers,
+        });
         return handleResponse<void>(response);
     },
 
     removeContainer: async (hostId: string, containerId: string): Promise<void> => {
-        const response = await fetch(`${API_BASE}/containers/${containerId}?hostId=${encodeURIComponent(hostId)}`, { method: 'DELETE' });
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/containers/${containerId}?hostId=${encodeURIComponent(hostId)}`, {
+            method: 'DELETE',
+            headers,
+        });
         return handleResponse<void>(response);
     },
 
     removeImage: async (hostId: string, imageId: string): Promise<void> => {
+        const headers = await getHeadersForHost(hostId);
         const formattedImageId = imageId.startsWith('sha256:') ? imageId : `sha256:${imageId}`;
-        const response = await fetch(`${API_BASE}/images/${encodeURIComponent(formattedImageId)}?hostId=${encodeURIComponent(hostId)}`, { method: 'DELETE' });
+        const response = await fetch(`${API_BASE}/images/${encodeURIComponent(formattedImageId)}?hostId=${encodeURIComponent(hostId)}`, {
+            method: 'DELETE',
+            headers,
+        });
         return handleResponse<void>(response);
     },
 
     removeVolume: async (hostId: string, volumeName: string): Promise<void> => {
-        const response = await fetch(`${API_BASE}/volumes/${encodeURIComponent(volumeName)}?hostId=${encodeURIComponent(hostId)}`, { method: 'DELETE' });
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/volumes/${encodeURIComponent(volumeName)}?hostId=${encodeURIComponent(hostId)}`, {
+            method: 'DELETE',
+            headers,
+        });
         return handleResponse<void>(response);
     },
 
     pullImage: async (hostId: string, imageName: string): Promise<void> => {
+        const headers = await getHeadersForHost(hostId, { 'Content-Type': 'application/json' });
         const response = await fetch(`${API_BASE}/images/pull?hostId=${encodeURIComponent(hostId)}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ name: imageName }),
         });
         return handleResponse<void>(response);
     },
 
-    createNetwork: async (hostId: string, name: string, driver: string): Promise<void> => {
+    createNetwork: async (hostId: string, name: string, driver: string, options?: { subnet?: string; gateway?: string; ipRange?: string; labels?: Record<string, string> }): Promise<void> => {
+        const headers = await getHeadersForHost(hostId, { 'Content-Type': 'application/json' });
         const response = await fetch(`${API_BASE}/networks?hostId=${encodeURIComponent(hostId)}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, driver }),
+            headers,
+            body: JSON.stringify({ name, driver, ...options }),
+        });
+        return handleResponse<void>(response);
+    },
+
+    deleteNetwork: async (hostId: string, networkId: string): Promise<void> => {
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/networks/${encodeURIComponent(networkId)}?hostId=${encodeURIComponent(hostId)}`, {
+            method: 'DELETE',
+            headers,
         });
         return handleResponse<void>(response);
     },
@@ -155,48 +309,68 @@ export const dockerService = {
     },
 
     pruneSystem: async (hostId: string, options: { volumes: boolean }): Promise<PruneReport> => {
+        const headers = await getHeadersForHost(hostId, { 'Content-Type': 'application/json' });
         const response = await fetch(`${API_BASE}/system/prune?hostId=${encodeURIComponent(hostId)}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(options),
         });
         return handleResponse<PruneReport>(response);
     },
 
     execCommand: async (hostId: string, containerId: string, command: string[]): Promise<{ output: string }> => {
+        const headers = await getHeadersForHost(hostId, { 'Content-Type': 'application/json' });
         const response = await fetch(`${API_BASE}/containers/${containerId}/exec?hostId=${encodeURIComponent(hostId)}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ command }),
         });
         return handleResponse<{ output: string }>(response);
     },
 
     getImageInspect: async (hostId: string, imageId: string): Promise<any> => {
-        const response = await fetch(`${API_BASE}/images/${encodeURIComponent(imageId)}/inspect?hostId=${encodeURIComponent(hostId)}`);
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/images/${encodeURIComponent(imageId)}/inspect?hostId=${encodeURIComponent(hostId)}`, {
+            headers,
+        });
         return handleResponse<any>(response);
     },
 
     getImageHistory: async (hostId: string, imageId: string): Promise<any[]> => {
-        const response = await fetch(`${API_BASE}/images/${encodeURIComponent(imageId)}/history?hostId=${encodeURIComponent(hostId)}`);
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/images/${encodeURIComponent(imageId)}/history?hostId=${encodeURIComponent(hostId)}`, {
+            headers,
+        });
         return handleResponse<any[]>(response);
     },
 
     getContainerStats: async (hostId: string, containerId: string): Promise<any> => {
-        const response = await fetch(`${API_BASE}/containers/${containerId}/stats?hostId=${encodeURIComponent(hostId)}`);
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/containers/${containerId}/stats?hostId=${encodeURIComponent(hostId)}`, {
+            headers,
+        });
         return handleResponse<any>(response);
     },
 
     testHostConnection: async (hostId: string): Promise<{ status: 'connected' | 'disconnected' | 'error'; error?: string }> => {
-        const response = await fetch(`${API_BASE}/hosts/${hostId}/test`, { method: 'POST' });
+        const headers = await getHeadersForHost(hostId);
+        const response = await fetch(`${API_BASE}/hosts/${hostId}/test`, {
+            method: 'POST',
+            headers,
+        });
         return handleResponse<{ status: 'connected' | 'disconnected' | 'error'; error?: string }>(response);
     },
 
-    testNewHostConnection: (name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean): Promise<{ status: 'connected' | 'disconnected' | 'error'; error?: string }> => {
+    testNewHostConnection: (name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean, apiKey?: string): Promise<{ status: 'connected' | 'disconnected' | 'error'; error?: string }> => {
+        const headers = { 'Content-Type': 'application/json' };
+        const token = localStorage.getItem('token');
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
         return fetch(`${API_BASE}/hosts/test`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, type, host, port, tls, socketProxy }),
+            headers,
+            body: JSON.stringify({ name, type, host, port, tls, socketProxy, apiKey }),
         }).then(handleResponse) as Promise<{ status: 'connected' | 'disconnected' | 'error'; error?: string }>;
     },
 };

@@ -49,13 +49,23 @@ function createDockerInstance(host: Host): Docker {
         const protocol = host.tls ? 'https' : 'http';
         const port = host.port || 2376;
         log.debug(`Creating remote Docker connection: ${protocol}://${host.host}:${port}${host.socketProxy ? ' (via socket proxy)' : ''}`);
-        const instance = new Docker({
+
+        const options: any = {
             host: host.host,
             port: port,
             protocol: protocol,
             version: host.socketProxy ? '' : undefined, // Disable API versioning for socket proxy
-            // In a real implementation, you'd add TLS certs here
-        });
+        };
+
+        // Add API key header for socket proxy authentication
+        if (host.socketProxy && host.apiKey) {
+            options.headers = {
+                'x-api-key': host.apiKey
+            };
+            log.debug(`Added x-api-key header for socket proxy authentication`);
+        }
+
+        const instance = new Docker(options);
         dockerInstances.set(host.id, instance);
         return instance;
     } else {

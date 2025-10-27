@@ -156,8 +156,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ host }) => {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
         <div className={`px-3 py-1 rounded-full text-sm font-medium ${systemHealth.status === 'healthy' ? 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-400' :
-            systemHealth.status === 'warning' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-400' :
-              'bg-gray-100 text-gray-800 dark:bg-gray-500/20 dark:text-gray-400'
+          systemHealth.status === 'warning' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-400' :
+            'bg-gray-100 text-gray-800 dark:bg-gray-500/20 dark:text-gray-400'
           }`}>
           <div className="flex items-center space-x-2">
             {systemHealth.status === 'healthy' ? <CheckCircleIcon /> : <ActivityIcon />}
@@ -182,7 +182,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ host }) => {
           <ZapIcon />
           <span className="ml-2">Quick Actions</span>
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Pull Image</label>
             <div className="flex space-x-2">
@@ -196,50 +196,50 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ host }) => {
               <button
                 onClick={handlePullImage}
                 disabled={!pullImageName.trim()}
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                className="px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm whitespace-nowrap"
               >
-                <DownloadIcon />
-                <span>Pull</span>
+                <DownloadIcon className="w-4 h-4" />
               </button>
             </div>
           </div>
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Create Network</label>
-            <div className="flex space-x-2">
+            <div className="space-y-2">
               <input
                 type="text"
                 placeholder="my-network"
                 value={networkName}
                 onChange={(e) => setNetworkName(e.target.value)}
-                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 dark:text-white"
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 dark:text-white"
               />
-              <select
-                value={networkDriver}
-                onChange={(e) => setNetworkDriver(e.target.value)}
-                className="px-2 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 dark:text-white"
-              >
-                <option value="bridge">bridge</option>
-                <option value="host">host</option>
-                <option value="overlay">overlay</option>
-                <option value="macvlan">macvlan</option>
-              </select>
-              <button
-                onClick={handleCreateNetwork}
-                disabled={!networkName.trim()}
-                className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
-              >
-                <PlusIcon />
-                <span>Create</span>
-              </button>
+              <div className="flex space-x-2">
+                <select
+                  value={networkDriver}
+                  onChange={(e) => setNetworkDriver(e.target.value)}
+                  className="flex-1 px-2 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 dark:text-white"
+                >
+                  <option value="bridge">bridge</option>
+                  <option value="host">host</option>
+                  <option value="overlay">overlay</option>
+                  <option value="macvlan">macvlan</option>
+                </select>
+                <button
+                  onClick={handleCreateNetwork}
+                  disabled={!networkName.trim()}
+                  className="px-3 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm whitespace-nowrap"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">System Maintenance</label>
             <button
               onClick={handlePruneSystem}
-              className="w-full px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center justify-center space-x-1"
+              className="w-full px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center justify-center space-x-2 text-sm"
             >
-              <Trash2Icon />
+              <Trash2Icon className="w-4 h-4" />
               <span>Prune System</span>
             </button>
           </div>
@@ -259,8 +259,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ host }) => {
                 <div key={container.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className={`w-3 h-3 rounded-full ${container.state === ContainerState.RUNNING ? 'bg-green-500' :
-                        container.state === ContainerState.EXITED ? 'bg-red-500' :
-                          'bg-yellow-500'
+                      container.state === ContainerState.EXITED ? 'bg-red-500' :
+                        'bg-yellow-500'
                       }`}></div>
                     <div>
                       <p className="font-medium text-gray-900 dark:text-white">{container.name}</p>
@@ -269,8 +269,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ host }) => {
                   </div>
                   <div className="text-right">
                     <span className={`px-2 py-1 text-xs rounded-full ${container.state === ContainerState.RUNNING ? 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-400' :
-                        container.state === ContainerState.EXITED ? 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-400' :
-                          'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-400'
+                      container.state === ContainerState.EXITED ? 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-400' :
+                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-400'
                       }`}>
                       {container.state}
                     </span>

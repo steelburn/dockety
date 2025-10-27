@@ -7,6 +7,7 @@ export interface Host {
   port?: number; // For remote hosts
   tls?: boolean; // For remote hosts
   socketProxy?: boolean; // Whether this host uses Docker Socket Proxy (removes API version from paths)
+  apiKey?: string; // API key for Docker Socket Proxy authentication
   status: 'unknown' | 'connected' | 'disconnected' | 'error';
   lastChecked?: string; // ISO timestamp
 }
@@ -91,4 +92,4 @@ export interface PruneReport {
 }
 
 
-export type ViewType = 'dashboard' | 'containers' | 'images' | 'volumes' | 'networks' | 'compose' | 'system';
+export type ViewType = 'dashboard' | 'containers' | 'images' | 'volumes' | 'networks' | 'compose' | 'hosts' | 'system';

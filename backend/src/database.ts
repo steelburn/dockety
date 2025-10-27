@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { Host } from './types';
+import { Host, User } from './types';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -31,8 +31,17 @@ db.exec(`
     port INTEGER,
     tls BOOLEAN DEFAULT 0,
     socketProxy BOOLEAN DEFAULT 0,
+    apiKey TEXT,
     status TEXT DEFAULT 'unknown',
     lastChecked TEXT
+  )
+`);
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL
   )
 `);
 log.info('Database schema initialized');
@@ -44,6 +53,15 @@ try {
 } catch (error) {
   // Column might already exist, ignore error
   log.debug('socketProxy column already exists or migration failed (expected for new databases)');
+}
+
+// Add apiKey column to existing tables if it doesn't exist (migration)
+try {
+  db.exec(`ALTER TABLE hosts ADD COLUMN apiKey TEXT`);
+  log.info('Added apiKey column to hosts table');
+} catch (error) {
+  // Column might already exist, ignore error
+  log.debug('apiKey column already exists or migration failed (expected for new databases)');
 }
 
 // Ensure there's at least one host to represent the local Docker daemon
@@ -68,17 +86,17 @@ export const databaseService = {
     return hosts;
   },
 
-  addHost(name: string, type: 'local' | 'remote' = 'local', host?: string, port?: number, tls?: boolean, socketProxy?: boolean): Host {
+  addHost(name: string, type: 'local' | 'remote' = 'local', host?: string, port?: number, tls?: boolean, socketProxy?: boolean, apiKey?: string): Host {
     const id = `host-${Date.now()}`;
-    log.info(`Adding new host to database: ${name} (${type})`, { id, host, port, tls, socketProxy });
-    db.prepare('INSERT INTO hosts (id, name, type, host, port, tls, socketProxy, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(id, name, type, host || null, port || null, tls ? 1 : 0, socketProxy ? 1 : 0, 'unknown');
+    log.info(`Adding new host to database: ${name} (${type})`, { id, host, port, tls, socketProxy, apiKey: apiKey ? '[REDACTED]' : undefined });
+    db.prepare('INSERT INTO hosts (id, name, type, host, port, tls, socketProxy, apiKey, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(id, name, type, host || null, port || null, tls ? 1 : 0, socketProxy ? 1 : 0, apiKey || null, 'unknown');
     log.info(`Host ${id} added to database successfully`);
-    return { id, name, type, host, port, tls, socketProxy, status: 'unknown' };
+    return { id, name, type, host, port, tls, socketProxy, apiKey, status: 'unknown' };
   },
 
-  updateHost(id: string, name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean): Host {
-    log.info(`Updating host ${id} in database: ${name}`, { type, host, port, tls, socketProxy });
+  updateHost(id: string, name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean, apiKey?: string): Host {
+    log.info(`Updating host ${id} in database: ${name}`, { type, host, port, tls, socketProxy, apiKey: apiKey ? '[REDACTED]' : undefined });
 
     // Get current host data
     const currentHost = db.prepare('SELECT * FROM hosts WHERE id = ?').get(id) as Host;
@@ -93,13 +111,14 @@ export const databaseService = {
       host: host !== undefined ? host : currentHost.host,
       port: port !== undefined ? port : currentHost.port,
       tls: tls !== undefined ? (tls ? 1 : 0) : currentHost.tls,
-      socketProxy: socketProxy !== undefined ? (socketProxy ? 1 : 0) : currentHost.socketProxy
+      socketProxy: socketProxy !== undefined ? (socketProxy ? 1 : 0) : currentHost.socketProxy,
+      apiKey: apiKey !== undefined ? apiKey : currentHost.apiKey
     };
 
-    log.debug(`Updating host with data:`, updatedData);
+    log.debug(`Updating host with data:`, { ...updatedData, apiKey: updatedData.apiKey ? '[REDACTED]' : undefined });
 
-    db.prepare('UPDATE hosts SET name = ?, type = ?, host = ?, port = ?, tls = ?, socketProxy = ? WHERE id = ?')
-      .run(updatedData.name, updatedData.type, updatedData.host, updatedData.port, updatedData.tls, updatedData.socketProxy, id);
+    db.prepare('UPDATE hosts SET name = ?, type = ?, host = ?, port = ?, tls = ?, socketProxy = ?, apiKey = ? WHERE id = ?')
+      .run(updatedData.name, updatedData.type, updatedData.host, updatedData.port, updatedData.tls, updatedData.socketProxy, updatedData.apiKey, id);
 
     const updatedHost = db.prepare('SELECT * FROM hosts WHERE id = ?').get(id) as Host;
     log.info(`Host ${id} updated in database successfully`);
@@ -120,5 +139,56 @@ export const databaseService = {
     log.info(`Removing host ${id} from database`);
     db.prepare('DELETE FROM hosts WHERE id = ?').run(id);
     log.info(`Host ${id} removed from database successfully`);
+  },
+
+  getUserByUsername(username: string): User | null {
+    log.debug(`Retrieving user by username: ${username}`);
+    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as User | undefined;
+    if (user) {
+      log.info(`User ${username} found`);
+    } else {
+      log.debug(`User ${username} not found`);
+    }
+    return user || null;
+  },
+
+  createUser(username: string, passwordHash: string): User {
+    const id = `user-${Date.now()}`;
+    const createdAt = new Date().toISOString();
+    log.info(`Creating new user: ${username}`, { id });
+    db.prepare('INSERT INTO users (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)')
+      .run(id, username, passwordHash, createdAt);
+    log.info(`User ${username} created successfully`);
+    return { id, username, passwordHash, createdAt };
+  },
+
+  getAllUsers(): User[] {
+    log.debug('Retrieving all users from database');
+    const users = db.prepare('SELECT * FROM users').all() as User[];
+    log.info(`Retrieved ${users.length} users from database`);
+    return users;
+  },
+
+  getUserById(id: string): User | null {
+    log.debug(`Retrieving user by id: ${id}`);
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as User | undefined;
+    if (user) {
+      log.info(`User ${id} found`);
+    } else {
+      log.debug(`User ${id} not found`);
+    }
+    return user || null;
+  },
+
+  deleteUser(id: string): void {
+    log.info(`Deleting user ${id} from database`);
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    log.info(`User ${id} deleted from database successfully`);
+  },
+
+  updateUserPassword(id: string, newPasswordHash: string): void {
+    log.info(`Updating password for user ${id}`);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newPasswordHash, id);
+    log.info(`Password updated for user ${id}`);
   }
 };
