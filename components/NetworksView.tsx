@@ -127,8 +127,10 @@ export const NetworksView: React.FC<NetworksViewProps> = ({ host }) => {
             </thead>
             <tbody>
               {items.map((network) => {
-                // Don't show delete button for system networks
+                // Don't show delete button for system networks or networks with attached containers
                 const isSystemNetwork = ['bridge', 'host', 'none'].includes(network.name) || network.scope === 'swarm';
+                const hasAttachedContainers = network.containers.length > 0;
+                const canDelete = !isSystemNetwork && !hasAttachedContainers;
                 return (
                   <Fragment key={network.id}>
                     <tr className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/40">
@@ -144,7 +146,7 @@ export const NetworksView: React.FC<NetworksViewProps> = ({ host }) => {
                       <td className="px-6 py-4">{network.scope}</td>
                       <td className="px-6 py-4 font-mono text-xs">{network.id}</td>
                       <td className="px-6 py-4">
-                        {!isSystemNetwork && (
+                        {canDelete && (
                           <button
                             onClick={() => handleDeleteNetwork(network.id, network.name)}
                             className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"

@@ -55,6 +55,8 @@ const App: React.FC = () => {
     setToken(null);
     setUser(null);
     setIsAuthenticated(false);
+    setHosts([]);
+    setSelectedHost(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
   }, []);
@@ -79,8 +81,10 @@ const App: React.FC = () => {
   }, [selectedHost]);
 
   useEffect(() => {
-    fetchHosts();
-  }, []); // Only on initial mount
+    if (isAuthenticated) {
+      fetchHosts();
+    }
+  }, [isAuthenticated]); // Only fetch hosts when user becomes authenticated
 
   const handleAddHost = useCallback(async (name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean) => {
     await dockerService.addHost(name, type, host, port, tls, socketProxy);

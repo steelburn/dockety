@@ -14,6 +14,7 @@ export const ConsoleTerminal: React.FC<ConsoleTerminalProps> = ({ host, containe
     const [executing, setExecuting] = useState(false);
     const [commandHistory, setCommandHistory] = useState<string[]>([]);
     const [historyIndex, setHistoryIndex] = useState(-1);
+    const [currentDirectory, setCurrentDirectory] = useState('/');
     const inputRef = useRef<HTMLInputElement>(null);
     const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -49,14 +50,43 @@ export const ConsoleTerminal: React.FC<ConsoleTerminalProps> = ({ host, containe
         if (!input.trim() || executing) return;
 
         const command = input.trim();
-        setHistory(prev => [...prev, `root@${container.id.substring(0, 12)}:/# ${command}`]);
+        setHistory(prev => [...prev, `root@${container.id.substring(0, 12)}:${currentDirectory}# ${command}`]);
         setCommandHistory(prev => [...prev, command]);
         setInput('');
         setHistoryIndex(-1);
         setExecuting(true);
 
         try {
-            const result = await dockerService.execCommand(host.id, container.id, ['sh', '-c', command]);
+            // Handle cd command specially
+            if (command.startsWith('cd ')) {
+                const newDir = command.substring(3).trim();
+                if (newDir === '' || newDir === '~') {
+                    setCurrentDirectory('/');
+                } else if (newDir === '..') {
+                    const parts = currentDirectory.split('/').filter(p => p);
+                    if (parts.length > 0) {
+                        parts.pop();
+                        setCurrentDirectory(parts.length === 0 ? '/' : '/' + parts.join('/'));
+                    }
+                } else if (newDir.startsWith('/')) {
+                    setCurrentDirectory(newDir);
+                } else {
+                    // Relative path
+                    const newPath = currentDirectory === '/' ? `/${newDir}` : `${currentDirectory}/${newDir}`;
+                    setCurrentDirectory(newPath);
+                }
+                setHistory(prev => [...prev, '']);
+                setExecuting(false);
+                return;
+            }
+
+            // For other commands, execute in the current directory
+            let fullCommand = command;
+            if (currentDirectory !== '/') {
+                fullCommand = `cd ${currentDirectory} && ${command}`;
+            }
+
+            const result = await dockerService.execCommand(host.id, container.id, ['sh', '-c', fullCommand]);
             const output = result.output || 'Command executed successfully.';
             setHistory(prev => [...prev, output]);
         } catch (error) {
@@ -104,7 +134,7 @@ export const ConsoleTerminal: React.FC<ConsoleTerminalProps> = ({ host, containe
                         </div>
                     ))}
                     <form onSubmit={handleFormSubmit} className="flex mt-2">
-                        <span className="text-green-400 mr-1">root@{container.id.substring(0, 12)}:/#</span>
+                        <span className="text-green-400 mr-1">root@{container.id.substring(0, 12)}:{currentDirectory}#</span>
                         <input
                             ref={inputRef}
                             type="text"

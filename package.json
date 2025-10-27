@@ -10,17 +10,21 @@
     "start": "concurrently \"npm run dev\" \"cd backend && npm run dev\""
   },
   "dependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "express": "^5.1.0",
+    "better-sqlite3": "^12.4.1",
     "cors": "^2.8.5",
     "dockerode": "^4.0.9",
-    "better-sqlite3": "^12.4.1"
+    "express": "^5.1.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.16",
     "@types/node": "^24.9.1",
     "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.4.21",
     "concurrently": "^9.1.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.16",
     "typescript": "~5.9.3",
     "vite": "^7.1.12"
   }
