@@ -36,7 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isSideba
     return (
         <aside className={`bg-white dark:bg-gray-800/50 backdrop-blur-sm text-gray-800 dark:text-white transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-20'} h-full flex flex-col fixed md:relative z-20 shadow-lg dark:shadow-none`}>
             <div className="p-4 flex items-center justify-center border-b border-gray-200 dark:border-gray-700 h-16">
-                <img src="/logo.svg" alt="Dockety Logo" className="h-8 w-auto" />
+                <img src="/Dockety Logo.svg" alt="Dockety Logo" className="h-8 w-auto" />
             </div>
             <nav className="flex-1 px-4 py-4 space-y-2">
                 {navItems.map(item => (
