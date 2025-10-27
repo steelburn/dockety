@@ -13,7 +13,7 @@ COPY components ./components
 COPY hooks ./hooks
 COPY services ./services
 COPY public ./public
-COPY src ./src
+COPY index.css ./
 COPY types.ts ./
 
 RUN npm ci --omit=dev || npm install
