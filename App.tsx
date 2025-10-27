@@ -12,6 +12,7 @@ import { ComposeView } from './components/ComposeView';
 import { HostsView } from './components/HostsView';
 import { SystemView } from './components/SystemView';
 import { Login } from './components/Login';
+import { AboutView } from './components/AboutView';
 
 export type Theme = 'light' | 'dark';
 
@@ -142,6 +143,8 @@ const App: React.FC = () => {
           onRemoveHost={handleRemoveHost}
           currentUser={user}
         />;
+      case 'about':
+        return <AboutView />;
       default:
         return <div>Not Found</div>;
     }

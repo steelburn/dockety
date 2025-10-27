@@ -9,6 +9,7 @@ const Share2Icon = ({ className }: { className?: string }) => <svg xmlns="http:/
 const Layers3Icon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.84l8.57 4.1a2 2 0 0 0 1.66 0l8.57-4.1a1 1 0 0 0 0-1.84Z" /><path d="m22 17.65-8.57 4.1a2 2 0 0 1-1.66 0L3.2 17.65" /><path d="m22 12.65-8.57 4.1a2 2 0 0 1-1.66 0L3.2 12.65" /></svg>;
 const ServerIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>;
 const Settings2Icon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><path d="M20 7h-9" /><path d="M14 17H5" /><circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" /></svg>;
+const InfoIcon = ({ className }: { className?: string }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className={className}><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>;
 
 
 const navItems: { view: ViewType, label: string, icon: React.ReactNode }[] = [
@@ -20,6 +21,7 @@ const navItems: { view: ViewType, label: string, icon: React.ReactNode }[] = [
     { view: 'networks', label: 'Networks', icon: <Share2Icon className="w-5 h-5" /> },
     { view: 'hosts', label: 'Hosts', icon: <ServerIcon className="w-5 h-5" /> },
     { view: 'system', label: 'System', icon: <Settings2Icon className="w-5 h-5" /> },
+    { view: 'about', label: 'About', icon: <InfoIcon className="w-5 h-5" /> },
 ];
 
 interface SidebarProps {
