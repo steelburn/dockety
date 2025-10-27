@@ -162,13 +162,17 @@ export const databaseService = {
 
   getUserByUsername(username: string): User | null {
     log.debug(`Retrieving user by username: ${username}`);
-    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as User | undefined;
+    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as any;
     if (user) {
       log.info(`User ${username} found`);
+      return {
+        ...user,
+        isApproved: Boolean(user.is_approved) // Convert SQLite integer to boolean
+      };
     } else {
       log.debug(`User ${username} not found`);
+      return null;
     }
-    return user || null;
   },
 
   createUser(username: string, passwordHash: string, role: 'owner' | 'admin' | 'user' = 'user', isApproved: boolean = true): User {
@@ -183,20 +187,27 @@ export const databaseService = {
 
   getAllUsers(): User[] {
     log.debug('Retrieving all users from database');
-    const users = db.prepare('SELECT * FROM users').all() as User[];
+    const users = db.prepare('SELECT * FROM users').all() as any[];
     log.info(`Retrieved ${users.length} users from database`);
-    return users;
+    return users.map(u => ({
+      ...u,
+      isApproved: Boolean(u.is_approved) // Convert SQLite integer to boolean
+    }));
   },
 
   getUserById(id: string): User | null {
     log.debug(`Retrieving user by id: ${id}`);
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as User | undefined;
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
     if (user) {
       log.info(`User ${id} found`);
+      return {
+        ...user,
+        isApproved: Boolean(user.is_approved) // Convert SQLite integer to boolean
+      };
     } else {
       log.debug(`User ${id} not found`);
+      return null;
     }
-    return user || null;
   },
 
   deleteUser(id: string): void {
@@ -225,16 +236,22 @@ export const databaseService = {
 
   getPendingUsers(): User[] {
     log.debug('Retrieving pending (unapproved) users from database');
-    const users = db.prepare('SELECT * FROM users WHERE is_approved = 0').all() as User[];
+    const users = db.prepare('SELECT * FROM users WHERE is_approved = 0').all() as any[];
     log.info(`Retrieved ${users.length} pending users from database`);
-    return users;
+    return users.map(u => ({
+      ...u,
+      isApproved: Boolean(u.is_approved) // Convert SQLite integer to boolean
+    }));
   },
 
   getApprovedUsers(): User[] {
     log.debug('Retrieving approved users from database');
-    const users = db.prepare('SELECT * FROM users WHERE is_approved = 1').all() as User[];
+    const users = db.prepare('SELECT * FROM users WHERE is_approved = 1').all() as any[];
     log.info(`Retrieved ${users.length} approved users from database`);
-    return users;
+    return users.map(u => ({
+      ...u,
+      isApproved: Boolean(u.is_approved) // Convert SQLite integer to boolean
+    }));
   },
 
   getUserCount(): number {
