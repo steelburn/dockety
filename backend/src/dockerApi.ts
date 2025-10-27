@@ -219,12 +219,12 @@ export const dockerApiService = {
     },
 
     async getNetworks(hostId?: string): Promise<Network[]> {
-        log.debug(`Retrieving Docker networks with container associations for host ${hostId || 'local'}`);
+        log.debug(`Retrieving Docker networks with detailed information for host ${hostId || 'local'}`);
         const dockerInstance = getDockerInstance(hostId);
         const allNetworks = await dockerInstance.listNetworks();
         const allContainers = await getContainersWithDetails(dockerInstance);
 
-        const processedNetworks = allNetworks.map(n => {
+        const processedNetworks = await Promise.all(allNetworks.map(async n => {
             const containersOnNetwork: string[] = [];
             const composeProjects = new Set<string>();
 
@@ -239,16 +239,35 @@ export const dockerApiService = {
                 }
             });
 
+            // Get detailed network information
+            let networkDetails;
+            try {
+                const network = dockerInstance.getNetwork(n.Id);
+                networkDetails = await network.inspect();
+            } catch (error) {
+                log.warn(`Failed to inspect network ${n.Name}:`, error);
+                networkDetails = null;
+            }
+
             return {
                 id: n.Id,
                 name: n.Name,
                 driver: n.Driver,
                 scope: n.Scope,
                 containers: containersOnNetwork,
-                composeProjects: Array.from(composeProjects)
+                composeProjects: Array.from(composeProjects),
+                ipam: networkDetails?.IPAM,
+                internal: networkDetails?.Internal,
+                attachable: networkDetails?.Attachable,
+                ingress: networkDetails?.Ingress,
+                configOnly: networkDetails?.ConfigOnly,
+                configFrom: networkDetails?.ConfigFrom,
+                options: networkDetails?.Options,
+                labels: networkDetails?.Labels,
+                created: networkDetails?.Created
             };
-        });
-        log.info(`Processed ${processedNetworks.length} networks for host ${hostId || 'local'}`);
+        }));
+        log.info(`Processed ${processedNetworks.length} networks with detailed information for host ${hostId || 'local'}`);
         return processedNetworks;
     },
 

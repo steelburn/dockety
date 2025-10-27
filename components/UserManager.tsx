@@ -333,11 +333,10 @@ export const UserManager: React.FC<UserManagerProps> = ({ currentUser, onPasswor
                                                 )}
                                             </p>
                                             <div className="flex items-center space-x-2">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                    user.role === 'owner' ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200' :
-                                                    user.role === 'admin' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
-                                                    'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
-                                                }`}>
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.role === 'owner' ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200' :
+                                                        user.role === 'admin' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
+                                                            'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+                                                    }`}>
                                                     {user.role}
                                                 </span>
                                                 {!user.isApproved && (

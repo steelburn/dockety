@@ -65,6 +65,26 @@ export interface Network {
   scope: string;
   containers: string[];
   composeProjects: string[];
+  // Advanced network information
+  ipam?: {
+    driver: string;
+    config: Array<{
+      subnet?: string;
+      gateway?: string;
+      ipRange?: string;
+    }>;
+    options?: Record<string, string>;
+  };
+  internal?: boolean;
+  attachable?: boolean;
+  ingress?: boolean;
+  configOnly?: boolean;
+  configFrom?: {
+    network: string;
+  };
+  options?: Record<string, string>;
+  labels?: Record<string, string>;
+  created?: string;
 }
 
 export interface SystemInfo {

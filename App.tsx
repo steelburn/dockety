@@ -86,6 +86,49 @@ const App: React.FC = () => {
     }
   }, [isAuthenticated]); // Only fetch hosts when user becomes authenticated
 
+  // Periodic host health check
+  useEffect(() => {
+    if (!isAuthenticated || hosts.length === 0) return;
+
+    const checkHostHealth = async () => {
+      try {
+        // Check each host's connection status
+        const healthChecks = await Promise.allSettled(
+          hosts.map(host => dockerService.testHostConnection(host.id))
+        );
+
+        // Update host statuses based on health check results
+        const updatedHosts = hosts.map((host, index) => {
+          const result = healthChecks[index];
+          if (result.status === 'fulfilled') {
+            return { ...host, status: result.value.status };
+          } else {
+            return { ...host, status: 'error' as const };
+          }
+        });
+
+        // Update state if any statuses changed
+        const hasStatusChange = updatedHosts.some((host, index) =>
+          host.status !== hosts[index].status
+        );
+
+        if (hasStatusChange) {
+          setHosts(updatedHosts);
+        }
+      } catch (error) {
+        console.error('Host health check failed:', error);
+      }
+    };
+
+    // Initial check
+    checkHostHealth();
+
+    // Set up periodic checks every 30 seconds
+    const interval = setInterval(checkHostHealth, 30000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, hosts.length]); // Re-run when authentication status or host count changes
+
   const handleAddHost = useCallback(async (name: string, type?: 'local' | 'remote', host?: string, port?: number, tls?: boolean, socketProxy?: boolean) => {
     await dockerService.addHost(name, type, host, port, tls, socketProxy);
     await fetchHosts();

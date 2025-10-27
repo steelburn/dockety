@@ -160,31 +160,97 @@ export const NetworksView: React.FC<NetworksViewProps> = ({ host }) => {
                     {expandedNetwork === network.id && (
                       <tr className="bg-gray-100/50 dark:bg-gray-700/20">
                         <td colSpan={6} className="p-4">
-                          <div className="pl-12 grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {network.composeProjects.length > 0 && (
+                          <div className="pl-12 space-y-6">
+                            {/* Basic Information */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                               <div>
-                                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Compose Projects:</h4>
-                                <ul className="list-disc list-inside text-gray-600 dark:text-gray-400">
-                                  {network.composeProjects.map(name => (
-                                    <li key={name} className="flex items-center space-x-2">
-                                      <Layers3Icon /> <span>{name}</span>
-                                    </li>
-                                  ))}
-                                </ul>
+                                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Network Details</h4>
+                                <div className="space-y-1 text-sm">
+                                  <div><span className="font-medium">ID:</span> <code className="text-xs bg-gray-200 dark:bg-gray-600 px-1 py-0.5 rounded">{network.id}</code></div>
+                                  <div><span className="font-medium">Created:</span> {network.created ? new Date(network.created).toLocaleString() : 'Unknown'}</div>
+                                  <div><span className="font-medium">Internal:</span> {network.internal ? 'Yes' : 'No'}</div>
+                                  <div><span className="font-medium">Attachable:</span> {network.attachable ? 'Yes' : 'No'}</div>
+                                  {network.ingress && <div><span className="font-medium">Ingress:</span> Yes</div>}
+                                  {network.configOnly && <div><span className="font-medium">Config Only:</span> Yes</div>}
+                                </div>
                               </div>
-                            )}
-                            {network.containers.length > 0 && (
-                              <div>
-                                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Containers:</h4>
-                                <ul className="list-disc list-inside text-gray-600 dark:text-gray-400">
-                                  {network.containers.map(name => (
-                                    <li key={name} className="flex items-center space-x-2">
-                                      <CubeIcon /> <span>{name}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
+
+                              {/* IPAM Configuration */}
+                              {network.ipam && (
+                                <div>
+                                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">IPAM Configuration</h4>
+                                  <div className="space-y-2 text-sm">
+                                    <div><span className="font-medium">Driver:</span> {network.ipam.driver}</div>
+                                    {network.ipam.config && network.ipam.config.length > 0 && (
+                                      <div>
+                                        <span className="font-medium">Config:</span>
+                                        <ul className="mt-1 space-y-1">
+                                          {network.ipam.config.map((config, index) => (
+                                            <li key={index} className="text-xs bg-gray-200 dark:bg-gray-600 p-2 rounded">
+                                              {config.subnet && <div>Subnet: {config.subnet}</div>}
+                                              {config.gateway && <div>Gateway: {config.gateway}</div>}
+                                              {config.ipRange && <div>IP Range: {config.ipRange}</div>}
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Options */}
+                              {network.options && Object.keys(network.options).length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Options</h4>
+                                  <div className="space-y-1 text-sm">
+                                    {Object.entries(network.options).map(([key, value]) => (
+                                      <div key={key}><span className="font-medium">{key}:</span> {value}</div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Labels */}
+                              {network.labels && Object.keys(network.labels).length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Labels</h4>
+                                  <div className="space-y-1 text-sm">
+                                    {Object.entries(network.labels).map(([key, value]) => (
+                                      <div key={key}><span className="font-medium">{key}:</span> {value}</div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Containers and Compose Projects */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {network.composeProjects.length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Compose Projects:</h4>
+                                  <ul className="list-disc list-inside text-gray-600 dark:text-gray-400">
+                                    {network.composeProjects.map(name => (
+                                      <li key={name} className="flex items-center space-x-2">
+                                        <Layers3Icon /> <span>{name}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              {network.containers.length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Containers ({network.containers.length}):</h4>
+                                  <ul className="list-disc list-inside text-gray-600 dark:text-gray-400 max-h-32 overflow-y-auto">
+                                    {network.containers.map(name => (
+                                      <li key={name} className="flex items-center space-x-2">
+                                        <CubeIcon /> <span>{name}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
                       </tr>
