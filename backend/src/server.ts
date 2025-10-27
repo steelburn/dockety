@@ -7,7 +7,7 @@ import { dockerApiService, initializeDockerInstances } from './dockerApi';
 import { Host } from './types';
 
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3002;
 const JWT_SECRET = 'dockety-secret-key'; // TODO: Use environment variable in production
 
 // Logging utility
