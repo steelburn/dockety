@@ -1,4 +1,4 @@
-import { Host, Container, Image, Volume, Network, SystemInfo, DockerStats, ComposeProject, PruneReport } from '../types';
+import { Host, Container, Image, Volume, Network, SystemInfo, DockerStats, ComposeProject, PruneReport, User } from '../types';
 
 const API_BASE = '/api';
 
@@ -44,32 +44,83 @@ const getHeadersForHost = async (hostId: string, additionalHeaders: Record<strin
 
 
 export const dockerService = {
-    login: async (username: string, password: string): Promise<{ token: string; user: { id: string; username: string } }> => {
+    login: async (username: string, password: string): Promise<{ token: string; user: { id: string; username: string; role: string; isApproved: boolean } }> => {
         const response = await fetch(`${API_BASE}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password }),
         });
-        return handleResponse<{ token: string; user: { id: string; username: string } }>(response);
+        return handleResponse<{ token: string; user: { id: string; username: string; role: string; isApproved: boolean } }>(response);
     },
 
-    register: async (username: string, password: string): Promise<{ token: string; user: { id: string; username: string } }> => {
+    register: async (username: string, password: string): Promise<{ token?: string; user: { id: string; username: string; role: string; isApproved: boolean }; message?: string }> => {
         const response = await fetch(`${API_BASE}/auth/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password }),
         });
-        return handleResponse<{ token: string; user: { id: string; username: string } }>(response);
+        return handleResponse<{ token?: string; user: { id: string; username: string; role: string; isApproved: boolean }; message?: string }>(response);
     },
 
-    getUsers: async (): Promise<{ id: string; username: string; createdAt: string }[]> => {
+    getUsers: async (): Promise<User[]> => {
         const headers = {};
         const token = localStorage.getItem('token');
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         }
         const response = await fetch(`${API_BASE}/users`, { headers });
-        return handleResponse<{ id: string; username: string; createdAt: string }[]>(response);
+        return handleResponse<User[]>(response);
+    },
+
+    getPendingUsers: async (): Promise<User[]> => {
+        const headers = {};
+        const token = localStorage.getItem('token');
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${API_BASE}/users/pending`, { headers });
+        return handleResponse<User[]>(response);
+    },
+
+    approveUser: async (userId: string): Promise<{ message: string }> => {
+        const headers = { 'Content-Type': 'application/json' };
+        const token = localStorage.getItem('token');
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${API_BASE}/users/${userId}/approve`, {
+            method: 'POST',
+            headers,
+        });
+        return handleResponse<{ message: string }>(response);
+    },
+
+    updateUserRole: async (userId: string, role: 'admin' | 'user'): Promise<{ message: string }> => {
+        const headers = { 'Content-Type': 'application/json' };
+        const token = localStorage.getItem('token');
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${API_BASE}/users/${userId}/role`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({ role }),
+        });
+        return handleResponse<{ message: string }>(response);
+    },
+
+    transferOwnership: async (newOwnerId: string): Promise<{ message: string }> => {
+        const headers = { 'Content-Type': 'application/json' };
+        const token = localStorage.getItem('token');
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${API_BASE}/users/transfer-ownership`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ newOwnerId }),
+        });
+        return handleResponse<{ message: string }>(response);
     },
 
     deleteUser: async (userId: string): Promise<void> => {

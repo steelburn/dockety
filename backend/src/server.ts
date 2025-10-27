@@ -52,6 +52,24 @@ const authenticateToken = (req: express.Request, res: express.Response, next: ex
     });
 };
 
+// Authorization middleware for admin/owner roles
+const requireAdminOrOwner = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const user = (req as any).user;
+    if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
+        return res.status(403).json({ error: 'Admin or owner privileges required' });
+    }
+    next();
+};
+
+// Authorization middleware for owner role only
+const requireOwner = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const user = (req as any).user;
+    if (!user || user.role !== 'owner') {
+        return res.status(403).json({ error: 'Owner privileges required' });
+    }
+    next();
+};
+
 // Wrapper for async routes
 const asyncHandler = (fn: (req: express.Request, res: express.Response, next: express.NextFunction) => Promise<any>) =>
     (req: express.Request, res: express.Response, next: express.NextFunction) =>
@@ -71,11 +89,26 @@ app.post('/auth/register', asyncHandler(async (req, res) => {
 
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
-    const user = databaseService.createUser(username, passwordHash);
 
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
-    log.info(`User ${username} registered successfully`);
-    res.status(201).json({ token, user: { id: user.id, username: user.username } });
+    // Check if this is the first user (becomes owner automatically)
+    const userCount = databaseService.getUserCount();
+    const isFirstUser = userCount === 0;
+    const role = isFirstUser ? 'owner' : 'user';
+    const isApproved = isFirstUser; // First user is automatically approved
+
+    const user = databaseService.createUser(username, passwordHash, role, isApproved);
+
+    if (isFirstUser) {
+        log.info(`First user ${username} registered as owner and automatically approved`);
+        const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+        res.status(201).json({ token, user: { id: user.id, username: user.username, role: user.role, isApproved: user.isApproved } });
+    } else {
+        log.info(`User ${username} registered and pending approval`);
+        res.status(201).json({
+            message: 'Registration successful. Your account is pending approval by an administrator.',
+            user: { id: user.id, username: user.username, role: user.role, isApproved: user.isApproved }
+        });
+    }
 }));
 
 app.post('/auth/login', asyncHandler(async (req, res) => {
@@ -89,32 +122,113 @@ app.post('/auth/login', asyncHandler(async (req, res) => {
         return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    if (!user.isApproved) {
+        return res.status(403).json({ error: 'Your account is pending approval by an administrator.' });
+    }
+
     const isValidPassword = await bcrypt.compare(password, user.passwordHash);
     if (!isValidPassword) {
         return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
     log.info(`User ${username} logged in successfully`);
-    res.json({ token, user: { id: user.id, username: user.username } });
+    res.json({ token, user: { id: user.id, username: user.username, role: user.role, isApproved: user.isApproved } });
 }));
 
 // --- User Management ---
-app.get('/users', authenticateToken, asyncHandler(async (req, res) => {
+app.get('/users', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
     log.debug('Retrieving all users');
-    // For now, allow any authenticated user to see all users
-    // In a real app, you'd check for admin role
     const users = databaseService.getAllUsers();
     log.info(`Retrieved ${users.length} users`);
-    res.json(users.map(u => ({ id: u.id, username: u.username, createdAt: u.createdAt })));
+    res.json(users.map(u => ({ id: u.id, username: u.username, role: u.role, isApproved: u.isApproved, createdAt: u.createdAt })));
 }));
 
-app.delete('/users/:id', authenticateToken, asyncHandler(async (req, res) => {
-    const userId = req.params.id;
-    const currentUserId = (req as any).user.id;
+app.get('/users/pending', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
+    log.debug('Retrieving pending users');
+    const users = databaseService.getPendingUsers();
+    log.info(`Retrieved ${users.length} pending users`);
+    res.json(users.map(u => ({ id: u.id, username: u.username, role: u.role, isApproved: u.isApproved, createdAt: u.createdAt })));
+}));
 
-    if (userId === currentUserId) {
+app.post('/users/:id/approve', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
+    const userId = req.params.id;
+    log.info(`Approving user ${userId}`);
+    databaseService.updateUserApproval(userId, true);
+    log.info(`User ${userId} approved successfully`);
+    res.json({ message: 'User approved successfully' });
+}));
+
+app.put('/users/:id/role', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
+    const userId = req.params.id;
+    const { role } = req.body;
+    const currentUser = (req as any).user;
+
+    if (!['admin', 'user'].includes(role)) {
+        return res.status(400).json({ error: 'Invalid role. Must be admin or user.' });
+    }
+
+    // Only owner can assign admin role
+    if (role === 'admin' && currentUser.role !== 'owner') {
+        return res.status(403).json({ error: 'Only owner can assign admin role' });
+    }
+
+    // Cannot change owner's role
+    const targetUser = databaseService.getUserById(userId);
+    if (!targetUser) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (targetUser.role === 'owner') {
+        return res.status(403).json({ error: 'Cannot change owner role' });
+    }
+
+    log.info(`Updating role for user ${userId} to ${role}`);
+    databaseService.updateUserRole(userId, role);
+    log.info(`Role updated for user ${userId} to ${role}`);
+    res.json({ message: 'User role updated successfully' });
+}));
+
+app.post('/users/transfer-ownership', authenticateToken, requireOwner, asyncHandler(async (req, res) => {
+    const { newOwnerId } = req.body;
+    const currentUser = (req as any).user;
+
+    if (!newOwnerId) {
+        return res.status(400).json({ error: 'New owner ID required' });
+    }
+
+    const newOwner = databaseService.getUserById(newOwnerId);
+    if (!newOwner) {
+        return res.status(404).json({ error: 'New owner user not found' });
+    }
+
+    if (!newOwner.isApproved) {
+        return res.status(400).json({ error: 'Cannot transfer ownership to unapproved user' });
+    }
+
+    // Transfer ownership
+    databaseService.updateUserRole(currentUser.id, 'admin');
+    databaseService.updateUserRole(newOwnerId, 'owner');
+
+    log.info(`Ownership transferred from ${currentUser.username} to ${newOwner.username}`);
+    res.json({ message: 'Ownership transferred successfully' });
+}));
+
+app.delete('/users/:id', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
+    const userId = req.params.id;
+    const currentUser = (req as any).user;
+
+    if (userId === currentUser.id) {
         return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
+    const targetUser = databaseService.getUserById(userId);
+    if (!targetUser) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (targetUser.role === 'owner') {
+        return res.status(403).json({ error: 'Cannot delete owner account' });
     }
 
     log.info(`Deleting user ${userId}`);

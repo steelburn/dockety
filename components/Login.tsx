@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { dockerService } from '../services/dockerService';
 
 interface LoginProps {
-    onLogin: (token: string, user: { id: string; username: string }) => void;
+    onLogin: (token: string, user: { id: string; username: string; role: string; isApproved: boolean }) => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {

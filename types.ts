@@ -12,6 +12,14 @@ export interface Host {
   lastChecked?: string; // ISO timestamp
 }
 
+export interface User {
+  id: string;
+  username: string;
+  role: 'owner' | 'admin' | 'user';
+  isApproved: boolean;
+  createdAt: string;
+}
+
 export enum ContainerState {
   CREATED = 'created',
   RUNNING = 'running',

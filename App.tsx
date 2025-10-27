@@ -24,7 +24,7 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('theme') as Theme) || 'dark');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<{ id: string; username: string } | null>(null);
+  const [user, setUser] = useState<{ id: string; username: string; role: string; isApproved: boolean } | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -43,7 +43,7 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleLogin = useCallback((newToken: string, newUser: { id: string; username: string }) => {
+  const handleLogin = useCallback((newToken: string, newUser: { id: string; username: string; role: string; isApproved: boolean }) => {
     setToken(newToken);
     setUser(newUser);
     setIsAuthenticated(true);

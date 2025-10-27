@@ -41,6 +41,8 @@ db.exec(`
     id TEXT PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user',
+    is_approved BOOLEAN NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL
   )
 `);
@@ -62,6 +64,23 @@ try {
 } catch (error) {
   // Column might already exist, ignore error
   log.debug('apiKey column already exists or migration failed (expected for new databases)');
+}
+
+// Add role and is_approved columns to users table if they don't exist (migration)
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`);
+  log.info('Added role column to users table');
+} catch (error) {
+  // Column might already exist, ignore error
+  log.debug('role column already exists or migration failed (expected for new databases)');
+}
+
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN is_approved BOOLEAN NOT NULL DEFAULT 1`);
+  log.info('Added is_approved column to users table');
+} catch (error) {
+  // Column might already exist, ignore error
+  log.debug('is_approved column already exists or migration failed (expected for new databases)');
 }
 
 // Ensure there's at least one host to represent the local Docker daemon
@@ -152,14 +171,14 @@ export const databaseService = {
     return user || null;
   },
 
-  createUser(username: string, passwordHash: string): User {
+  createUser(username: string, passwordHash: string, role: 'owner' | 'admin' | 'user' = 'user', isApproved: boolean = true): User {
     const id = `user-${Date.now()}`;
     const createdAt = new Date().toISOString();
-    log.info(`Creating new user: ${username}`, { id });
-    db.prepare('INSERT INTO users (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)')
-      .run(id, username, passwordHash, createdAt);
+    log.info(`Creating new user: ${username} with role: ${role}, approved: ${isApproved}`, { id });
+    db.prepare('INSERT INTO users (id, username, password_hash, role, is_approved, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(id, username, passwordHash, role, isApproved ? 1 : 0, createdAt);
     log.info(`User ${username} created successfully`);
-    return { id, username, passwordHash, createdAt };
+    return { id, username, passwordHash, role, isApproved, createdAt };
   },
 
   getAllUsers(): User[] {
@@ -190,5 +209,36 @@ export const databaseService = {
     log.info(`Updating password for user ${id}`);
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newPasswordHash, id);
     log.info(`Password updated for user ${id}`);
+  },
+
+  updateUserRole(id: string, role: 'owner' | 'admin' | 'user'): void {
+    log.info(`Updating role for user ${id} to ${role}`);
+    db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, id);
+    log.info(`Role updated for user ${id} to ${role}`);
+  },
+
+  updateUserApproval(id: string, isApproved: boolean): void {
+    log.info(`Updating approval status for user ${id} to ${isApproved}`);
+    db.prepare('UPDATE users SET is_approved = ? WHERE id = ?').run(isApproved ? 1 : 0, id);
+    log.info(`Approval status updated for user ${id} to ${isApproved}`);
+  },
+
+  getPendingUsers(): User[] {
+    log.debug('Retrieving pending (unapproved) users from database');
+    const users = db.prepare('SELECT * FROM users WHERE is_approved = 0').all() as User[];
+    log.info(`Retrieved ${users.length} pending users from database`);
+    return users;
+  },
+
+  getApprovedUsers(): User[] {
+    log.debug('Retrieving approved users from database');
+    const users = db.prepare('SELECT * FROM users WHERE is_approved = 1').all() as User[];
+    log.info(`Retrieved ${users.length} approved users from database`);
+    return users;
+  },
+
+  getUserCount(): number {
+    const row = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
+    return row.count;
   }
 };

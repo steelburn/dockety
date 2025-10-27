@@ -5,6 +5,8 @@ export interface User {
   id: string;
   username: string;
   passwordHash: string;
+  role: 'owner' | 'admin' | 'user';
+  isApproved: boolean;
   createdAt: string;
 }
 
