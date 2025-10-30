@@ -7,7 +7,7 @@ import { dockerApiService, initializeDockerInstances } from './dockerApi';
 import { Host } from './types';
 
 const app = express();
-const port = 3001;
+const port = process.env.PORT || 3002;
 const JWT_SECRET = 'dockety-secret-key'; // TODO: Use environment variable in production
 
 // Logging utility
@@ -76,12 +76,12 @@ const asyncHandler = (fn: (req: express.Request, res: express.Response, next: ex
         Promise.resolve(fn(req, res, next)).catch(next);
 
 // --- Authentication ---
-app.get('/auth/is-first-user', asyncHandler(async (req, res) => {
+app.get('/api/auth/is-first-user', asyncHandler(async (req, res) => {
     const userCount = databaseService.getUserCount();
     res.json({ isFirstUser: userCount === 0 });
 }));
 
-app.post('/auth/register', asyncHandler(async (req, res) => {
+app.post('/api/auth/register', asyncHandler(async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ error: 'Username and password required' });
@@ -116,7 +116,7 @@ app.post('/auth/register', asyncHandler(async (req, res) => {
     }
 }));
 
-app.post('/auth/login', asyncHandler(async (req, res) => {
+app.post('/api/auth/login', asyncHandler(async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ error: 'Username and password required' });
@@ -142,21 +142,21 @@ app.post('/auth/login', asyncHandler(async (req, res) => {
 }));
 
 // --- User Management ---
-app.get('/users', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
+app.get('/api/users', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
     log.debug('Retrieving all users');
     const users = databaseService.getAllUsers();
     log.info(`Retrieved ${users.length} users`);
     res.json(users.map(u => ({ id: u.id, username: u.username, role: u.role, isApproved: u.isApproved, createdAt: u.createdAt })));
 }));
 
-app.get('/users/pending', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
+app.get('/api/users/pending', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
     log.debug('Retrieving pending users');
     const users = databaseService.getPendingUsers();
     log.info(`Retrieved ${users.length} pending users`);
     res.json(users.map(u => ({ id: u.id, username: u.username, role: u.role, isApproved: u.isApproved, createdAt: u.createdAt })));
 }));
 
-app.post('/users/:id/approve', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
+app.post('/api/users/:id/approve', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
     const userId = req.params.id;
     log.info(`Approving user ${userId}`);
     databaseService.updateUserApproval(userId, true);
@@ -164,7 +164,7 @@ app.post('/users/:id/approve', authenticateToken, requireAdminOrOwner, asyncHand
     res.json({ message: 'User approved successfully' });
 }));
 
-app.put('/users/:id/role', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
+app.put('/api/users/:id/role', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
     const userId = req.params.id;
     const { role } = req.body;
     const currentUser = (req as any).user;
@@ -194,7 +194,7 @@ app.put('/users/:id/role', authenticateToken, requireAdminOrOwner, asyncHandler(
     res.json({ message: 'User role updated successfully' });
 }));
 
-app.post('/users/transfer-ownership', authenticateToken, requireOwner, asyncHandler(async (req, res) => {
+app.post('/api/users/transfer-ownership', authenticateToken, requireOwner, asyncHandler(async (req, res) => {
     const { newOwnerId } = req.body;
     const currentUser = (req as any).user;
 
@@ -219,7 +219,7 @@ app.post('/users/transfer-ownership', authenticateToken, requireOwner, asyncHand
     res.json({ message: 'Ownership transferred successfully' });
 }));
 
-app.delete('/users/:id', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
+app.delete('/api/users/:id', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
     const userId = req.params.id;
     const currentUser = (req as any).user;
 
@@ -242,7 +242,7 @@ app.delete('/users/:id', authenticateToken, requireAdminOrOwner, asyncHandler(as
     res.status(204).send();
 }));
 
-app.put('/auth/change-password', authenticateToken, asyncHandler(async (req, res) => {
+app.put('/api/auth/change-password', authenticateToken, asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = req.body;
     const userId = (req as any).user.id;
 
@@ -269,14 +269,14 @@ app.put('/auth/change-password', authenticateToken, asyncHandler(async (req, res
 }));
 
 // --- Host Management (Database) ---
-app.get('/hosts', authenticateToken, (req, res) => {
+app.get('/api/hosts', authenticateToken, (req, res) => {
     log.debug('Fetching all hosts');
     const hosts = databaseService.getHosts();
     log.info(`Retrieved ${hosts.length} hosts`);
     res.json(hosts);
 });
 
-app.post('/hosts', authenticateToken, async (req, res) => {
+app.post('/api/hosts', authenticateToken, async (req, res) => {
     const { name, type = 'local', host, port, tls, socketProxy, apiKey } = req.body;
     log.info(`Adding new host: ${name} (${type})`, { host, port, tls, socketProxy, apiKey: apiKey ? '[REDACTED]' : undefined });
     const newHost = databaseService.addHost(name, type, host, port, tls, socketProxy, apiKey);
@@ -293,7 +293,7 @@ app.post('/hosts', authenticateToken, async (req, res) => {
     res.status(201).json(newHost);
 });
 
-app.put('/hosts/:id', authenticateToken, async (req, res) => {
+app.put('/api/hosts/:id', authenticateToken, async (req, res) => {
     const { name, type, host, port, tls, socketProxy, apiKey } = req.body;
     log.info(`Updating host ${req.params.id}: ${name}`, { type, host, port, tls, socketProxy, apiKey: apiKey ? '[REDACTED]' : undefined });
     const updatedHost = databaseService.updateHost(req.params.id, name, type, host, port, tls, socketProxy, apiKey);
@@ -310,14 +310,14 @@ app.put('/hosts/:id', authenticateToken, async (req, res) => {
     res.json(updatedHost);
 });
 
-app.delete('/hosts/:id', authenticateToken, (req, res) => {
+app.delete('/api/hosts/:id', authenticateToken, (req, res) => {
     log.info(`Removing host ${req.params.id}`);
     databaseService.removeHost(req.params.id);
     log.info(`Host ${req.params.id} removed successfully`);
     res.status(204).send();
 });
 
-app.post('/hosts/:id/test', authenticateToken, asyncHandler(async (req, res) => {
+app.post('/api/hosts/:id/test', authenticateToken, asyncHandler(async (req, res) => {
     const host = databaseService.getHosts().find(h => h.id === req.params.id);
     if (!host) {
         log.warn(`Host ${req.params.id} not found for connection test`);
@@ -330,7 +330,7 @@ app.post('/hosts/:id/test', authenticateToken, asyncHandler(async (req, res) => 
     res.json(result);
 }));
 
-app.post('/hosts/test', authenticateToken, asyncHandler(async (req, res) => {
+app.post('/api/hosts/test', authenticateToken, asyncHandler(async (req, res) => {
     const { name, type, host, port, tls, socketProxy, apiKey } = req.body;
     log.info(`Testing connection to new host configuration: ${name} (${type})`, { apiKey: apiKey ? '[REDACTED]' : undefined });
 
@@ -352,7 +352,7 @@ app.post('/hosts/test', authenticateToken, asyncHandler(async (req, res) => {
     log.info(`Connection test for new host configuration completed with status: ${result.status}`);
     res.json(result);
 }));// --- Docker Data ---
-app.get('/system/info', authenticateToken, asyncHandler(async (req, res) => {
+app.get('/api/system/info', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.debug(`Fetching Docker system info for host ${hostId || 'local'}`);
     const info = await dockerApiService.getSystemInfo(hostId);
@@ -360,7 +360,7 @@ app.get('/system/info', authenticateToken, asyncHandler(async (req, res) => {
     res.json(info);
 }));
 
-app.get('/system/stats', authenticateToken, asyncHandler(async (req, res) => {
+app.get('/api/system/stats', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.debug(`Fetching Docker system stats for host ${hostId || 'local'}`);
     const stats = await dockerApiService.getStats(hostId);
@@ -368,7 +368,7 @@ app.get('/system/stats', authenticateToken, asyncHandler(async (req, res) => {
     res.json(stats);
 }));
 
-app.get('/containers', authenticateToken, asyncHandler(async (req, res) => {
+app.get('/api/containers', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.debug(`Fetching containers list for host ${hostId || 'local'}`);
     const containers = await dockerApiService.getContainers(hostId);
@@ -376,7 +376,7 @@ app.get('/containers', authenticateToken, asyncHandler(async (req, res) => {
     res.json(containers);
 }));
 
-app.get('/images', authenticateToken, asyncHandler(async (req, res) => {
+app.get('/api/images', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.debug(`Fetching images list for host ${hostId || 'local'}`);
     const images = await dockerApiService.getImages(hostId);
@@ -384,7 +384,7 @@ app.get('/images', authenticateToken, asyncHandler(async (req, res) => {
     res.json(images);
 }));
 
-app.get('/volumes', authenticateToken, asyncHandler(async (req, res) => {
+app.get('/api/volumes', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.debug(`Fetching volumes list for host ${hostId || 'local'}`);
     const volumes = await dockerApiService.getVolumes(hostId);
@@ -392,7 +392,7 @@ app.get('/volumes', authenticateToken, asyncHandler(async (req, res) => {
     res.json(volumes);
 }));
 
-app.get('/networks', authenticateToken, asyncHandler(async (req, res) => {
+app.get('/api/networks', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.debug(`Fetching networks list for host ${hostId || 'local'}`);
     const networks = await dockerApiService.getNetworks(hostId);
@@ -400,7 +400,7 @@ app.get('/networks', authenticateToken, asyncHandler(async (req, res) => {
     res.json(networks);
 }));
 
-app.get('/compose', authenticateToken, asyncHandler(async (req, res) => {
+app.get('/api/compose', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.debug(`Fetching compose projects for host ${hostId || 'local'}`);
     const projects = await dockerApiService.getComposeProjects(hostId);
@@ -408,7 +408,7 @@ app.get('/compose', authenticateToken, asyncHandler(async (req, res) => {
     res.json(projects);
 }));
 
-app.get('/containers/:id/logs', authenticateToken, asyncHandler(async (req, res) => {
+app.get('/api/containers/:id/logs', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.debug(`Fetching logs for container ${req.params.id} on host ${hostId || 'local'}`);
     const logs = await dockerApiService.getContainerLogs(req.params.id, hostId);
@@ -416,7 +416,7 @@ app.get('/containers/:id/logs', authenticateToken, asyncHandler(async (req, res)
     res.type('text/plain').send(logs);
 }));
 
-app.get('/images/:id/inspect', authenticateToken, asyncHandler(async (req, res) => {
+app.get('/api/images/:id/inspect', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.debug(`Inspecting image ${req.params.id} on host ${hostId || 'local'}`);
     const inspect = await dockerApiService.getImageInspect(req.params.id, hostId);
@@ -424,7 +424,7 @@ app.get('/images/:id/inspect', authenticateToken, asyncHandler(async (req, res) 
     res.json(inspect);
 }));
 
-app.get('/images/:id/history', authenticateToken, asyncHandler(async (req, res) => {
+app.get('/api/images/:id/history', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.debug(`Fetching history for image ${req.params.id} on host ${hostId || 'local'}`);
     const history = await dockerApiService.getImageHistory(req.params.id, hostId);
@@ -432,7 +432,7 @@ app.get('/images/:id/history', authenticateToken, asyncHandler(async (req, res) 
     res.json(history);
 }));
 
-app.get('/containers/:id/stats', authenticateToken, asyncHandler(async (req, res) => {
+app.get('/api/containers/:id/stats', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.debug(`Fetching stats for container ${req.params.id} on host ${hostId || 'local'}`);
     const stats = await dockerApiService.getContainerStats(req.params.id, hostId);
@@ -441,7 +441,7 @@ app.get('/containers/:id/stats', authenticateToken, asyncHandler(async (req, res
 }));
 
 // --- Docker Actions ---
-app.post('/containers/:id/start', authenticateToken, asyncHandler(async (req, res) => {
+app.post('/api/containers/:id/start', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.info(`Starting container ${req.params.id} on host ${hostId || 'local'}`);
     await dockerApiService.startContainer(req.params.id, hostId);
@@ -449,7 +449,7 @@ app.post('/containers/:id/start', authenticateToken, asyncHandler(async (req, re
     res.status(204).send();
 }));
 
-app.post('/containers/:id/stop', authenticateToken, asyncHandler(async (req, res) => {
+app.post('/api/containers/:id/stop', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.info(`Stopping container ${req.params.id} on host ${hostId || 'local'}`);
     await dockerApiService.stopContainer(req.params.id, hostId);
@@ -457,7 +457,7 @@ app.post('/containers/:id/stop', authenticateToken, asyncHandler(async (req, res
     res.status(204).send();
 }));
 
-app.post('/containers/:id/restart', authenticateToken, asyncHandler(async (req, res) => {
+app.post('/api/containers/:id/restart', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.info(`Restarting container ${req.params.id} on host ${hostId || 'local'}`);
     await dockerApiService.restartContainer(req.params.id, hostId);
@@ -465,7 +465,7 @@ app.post('/containers/:id/restart', authenticateToken, asyncHandler(async (req, 
     res.status(204).send();
 }));
 
-app.delete('/containers/:id', authenticateToken, asyncHandler(async (req, res) => {
+app.delete('/api/containers/:id', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.info(`Removing container ${req.params.id} on host ${hostId || 'local'}`);
     await dockerApiService.removeContainer(req.params.id, hostId);
@@ -473,7 +473,7 @@ app.delete('/containers/:id', authenticateToken, asyncHandler(async (req, res) =
     res.status(204).send();
 }));
 
-app.delete('/images/:id', authenticateToken, asyncHandler(async (req, res) => {
+app.delete('/api/images/:id', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.info(`Removing image ${req.params.id} on host ${hostId || 'local'}`);
     await dockerApiService.removeImage(req.params.id, hostId);
@@ -481,7 +481,7 @@ app.delete('/images/:id', authenticateToken, asyncHandler(async (req, res) => {
     res.status(204).send();
 }));
 
-app.delete('/volumes/:name', authenticateToken, asyncHandler(async (req, res) => {
+app.delete('/api/volumes/:name', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.info(`Removing volume ${req.params.name} on host ${hostId || 'local'}`);
     await dockerApiService.removeVolume(req.params.name, hostId);
@@ -489,7 +489,7 @@ app.delete('/volumes/:name', authenticateToken, asyncHandler(async (req, res) =>
     res.status(204).send();
 }));
 
-app.post('/images/pull', authenticateToken, asyncHandler(async (req, res) => {
+app.post('/api/images/pull', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.info(`Pulling image ${req.body.name} on host ${hostId || 'local'}`);
     await dockerApiService.pullImage(req.body.name, hostId);
@@ -497,7 +497,7 @@ app.post('/images/pull', authenticateToken, asyncHandler(async (req, res) => {
     res.status(204).send();
 }));
 
-app.post('/networks', authenticateToken, asyncHandler(async (req, res) => {
+app.post('/api/networks', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.info(`Creating network ${req.body.name} with driver ${req.body.driver} on host ${hostId || 'local'}`);
     await dockerApiService.createNetwork(req.body.name, req.body.driver, hostId);
@@ -505,7 +505,7 @@ app.post('/networks', authenticateToken, asyncHandler(async (req, res) => {
     res.status(204).send();
 }));
 
-app.post('/system/prune', authenticateToken, asyncHandler(async (req, res) => {
+app.post('/api/system/prune', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.info(`Starting system prune operation on host ${hostId || 'local'}`, req.body);
     const report = await dockerApiService.pruneSystem(req.body, hostId);
@@ -513,7 +513,7 @@ app.post('/system/prune', authenticateToken, asyncHandler(async (req, res) => {
     res.json(report);
 }));
 
-app.post('/containers/:id/exec', authenticateToken, asyncHandler(async (req, res) => {
+app.post('/api/containers/:id/exec', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
     log.info(`Executing command in container ${req.params.id} on host ${hostId || 'local'}: ${JSON.stringify(req.body.command)}`);
     const output = await dockerApiService.execCommand(req.params.id, req.body.command, hostId);

@@ -166,8 +166,12 @@ export const databaseService = {
     if (user) {
       log.info(`User ${username} found`);
       return {
-        ...user,
-        isApproved: Boolean(user.is_approved) // Convert SQLite integer to boolean
+        id: user.id,
+        username: user.username,
+        passwordHash: user.password_hash,
+        role: user.role,
+        isApproved: Boolean(user.is_approved), // Convert SQLite integer to boolean
+        createdAt: user.created_at
       };
     } else {
       log.debug(`User ${username} not found`);
@@ -190,8 +194,12 @@ export const databaseService = {
     const users = db.prepare('SELECT * FROM users').all() as any[];
     log.info(`Retrieved ${users.length} users from database`);
     return users.map(u => ({
-      ...u,
-      isApproved: Boolean(u.is_approved) // Convert SQLite integer to boolean
+      id: u.id,
+      username: u.username,
+      passwordHash: u.password_hash,
+      role: u.role,
+      isApproved: Boolean(u.is_approved), // Convert SQLite integer to boolean
+      createdAt: u.created_at
     }));
   },
 
@@ -201,8 +209,12 @@ export const databaseService = {
     if (user) {
       log.info(`User ${id} found`);
       return {
-        ...user,
-        isApproved: Boolean(user.is_approved) // Convert SQLite integer to boolean
+        id: user.id,
+        username: user.username,
+        passwordHash: user.password_hash,
+        role: user.role,
+        isApproved: Boolean(user.is_approved), // Convert SQLite integer to boolean
+        createdAt: user.created_at
       };
     } else {
       log.debug(`User ${id} not found`);
@@ -239,8 +251,12 @@ export const databaseService = {
     const users = db.prepare('SELECT * FROM users WHERE is_approved = 0').all() as any[];
     log.info(`Retrieved ${users.length} pending users from database`);
     return users.map(u => ({
-      ...u,
-      isApproved: Boolean(u.is_approved) // Convert SQLite integer to boolean
+      id: u.id,
+      username: u.username,
+      passwordHash: u.password_hash,
+      role: u.role,
+      isApproved: Boolean(u.is_approved), // Convert SQLite integer to boolean
+      createdAt: u.created_at
     }));
   },
 
@@ -249,8 +265,12 @@ export const databaseService = {
     const users = db.prepare('SELECT * FROM users WHERE is_approved = 1').all() as any[];
     log.info(`Retrieved ${users.length} approved users from database`);
     return users.map(u => ({
-      ...u,
-      isApproved: Boolean(u.is_approved) // Convert SQLite integer to boolean
+      id: u.id,
+      username: u.username,
+      passwordHash: u.password_hash,
+      role: u.role,
+      isApproved: Boolean(u.is_approved), // Convert SQLite integer to boolean
+      createdAt: u.created_at
     }));
   },
 
