@@ -27,24 +27,8 @@ const Share2Icon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
 );
 
-const DownloadIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-);
-
-const PlusIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-);
-
-const Trash2Icon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-);
-
 const ActivityIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-);
-
-const ZapIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
 );
 
 const ClockIcon = () => (
@@ -63,9 +47,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ host }) => {
   const [composeProjects, setComposeProjects] = useState<ComposeProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pullImageName, setPullImageName] = useState('');
-  const [networkName, setNetworkName] = useState('');
-  const [networkDriver, setNetworkDriver] = useState('bridge');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -92,37 +73,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ host }) => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  const handlePullImage = async () => {
-    if (!pullImageName.trim()) return;
-    try {
-      await dockerService.pullImage(host.id, pullImageName);
-      setPullImageName('');
-      fetchData(); // Refresh data
-    } catch (e) {
-      console.error('Failed to pull image:', e);
-    }
-  };
-
-  const handleCreateNetwork = async () => {
-    if (!networkName.trim()) return;
-    try {
-      await dockerService.createNetwork(host.id, networkName, networkDriver);
-      setNetworkName('');
-      fetchData(); // Refresh data
-    } catch (e) {
-      console.error('Failed to create network:', e);
-    }
-  };
-
-  const handlePruneSystem = async () => {
-    try {
-      await dockerService.pruneSystem(host.id, { volumes: false });
-      fetchData(); // Refresh data
-    } catch (e) {
-      console.error('Failed to prune system:', e);
-    }
-  };
 
   const getRecentContainers = () => {
     return containers
@@ -174,76 +124,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ host }) => {
         <StatCard title="Images" value={stats.totalImages} icon={<LayersIcon />} colorClass="bg-yellow-500/20 text-yellow-400" />
         <StatCard title="Volumes" value={stats.totalVolumes} icon={<DatabaseIcon />} colorClass="bg-purple-500/20 text-purple-400" />
         <StatCard title="Networks" value={stats.totalNetworks} icon={<Share2Icon />} colorClass="bg-indigo-500/20 text-indigo-400" />
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-        <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white flex items-center">
-          <ZapIcon />
-          <span className="ml-2">Quick Actions</span>
-        </h2>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Pull Image</label>
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                placeholder="nginx:latest"
-                value={pullImageName}
-                onChange={(e) => setPullImageName(e.target.value)}
-                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 dark:text-white"
-              />
-              <button
-                onClick={handlePullImage}
-                disabled={!pullImageName.trim()}
-                className="px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm whitespace-nowrap"
-              >
-                <DownloadIcon className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Create Network</label>
-            <div className="space-y-2">
-              <input
-                type="text"
-                placeholder="my-network"
-                value={networkName}
-                onChange={(e) => setNetworkName(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 dark:text-white"
-              />
-              <div className="flex space-x-2">
-                <select
-                  value={networkDriver}
-                  onChange={(e) => setNetworkDriver(e.target.value)}
-                  className="flex-1 px-2 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 dark:text-white"
-                >
-                  <option value="bridge">bridge</option>
-                  <option value="host">host</option>
-                  <option value="overlay">overlay</option>
-                  <option value="macvlan">macvlan</option>
-                </select>
-                <button
-                  onClick={handleCreateNetwork}
-                  disabled={!networkName.trim()}
-                  className="px-3 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm whitespace-nowrap"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">System Maintenance</label>
-            <button
-              onClick={handlePruneSystem}
-              className="w-full px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center justify-center space-x-2 text-sm"
-            >
-              <Trash2Icon className="w-4 h-4" />
-              <span>Prune System</span>
-            </button>
-          </div>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
