@@ -196,18 +196,39 @@ curl -s http://localhost:3001/api/auth/is-first-user
 **Files Changed:**
 - `vite.config.ts`: Added explicit mode-based defaults for `VITE_API_BASE`
 
-**Prevention:** 
-- Use mode-based defaults in Vite config instead of simple environment variable fallbacks
-- Test production builds locally before deployment
-- Document environment variable usage clearly
-- Validate API_BASE configuration in different deployment environments
+**Prevention:** Use mode-based defaults in Vite config instead of simple environment variable fallbacks. Test production builds locally before deployment. Validate API_BASE configuration in different deployment environments.
 
 **Code Pattern:**
 ```typescript
 // Good: Mode-based defaults
-const defaultApiBase = mode === 'production' ? '/api' : 'http://localhost:3001/api';
-'import.meta.env.VITE_API_BASE': JSON.stringify(env.VITE_API_BASE || defaultApiBase)
+'import.meta.env.VITE_API_BASE': JSON.stringify(mode === 'production' ? '/api' : 'http://localhost:3001/api')
 
 // Avoid: Simple fallbacks that can be overridden incorrectly
 'import.meta.env.VITE_API_BASE': JSON.stringify(env.VITE_API_BASE || '/api')
 ```
+
+## Development Workflow: Branching Strategy Implemented
+
+**Date:** November 4, 2025  
+**Issue:** Direct commits to main branch causing untested production deployments
+
+**Solution Implemented:**
+1. **Separate Feature Branches**: All fixes and features must be developed on separate branches
+2. **Production Testing**: Changes must be tested in production environment before merging to main
+3. **Main Branch Protection**: Main branch contains only verified, production-ready code
+4. **Branch Naming**: Use descriptive names like `fix/api-base-config`, `feature/new-dashboard`
+
+**Benefits:**
+- **Risk Reduction**: Prevents untested code from reaching production
+- **Easier Rollbacks**: Failed deployments can be rolled back by reverting specific merges
+- **Better Testing**: Production environment testing catches deployment-specific issues
+- **Code Quality**: More thorough review and testing process
+
+**Workflow:**
+1. Create feature branch: `git checkout -b fix/issue-description`
+2. Make changes and test locally
+3. Build and test production deployment
+4. Only merge to main after production verification
+5. Delete feature branch after successful merge
+
+**Prevention:** Never commit directly to main. Always use feature branches for development work.

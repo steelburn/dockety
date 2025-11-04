@@ -45,3 +45,22 @@ Quick checks for agents
 - First user registration automatically creates an owner account and approves it.
 
 If you want additions, tell me which workflows or files you'd like expanded (e.g., CI, tests, or docker-compose overrides) and I will add them.
+
+## Development Workflow & Branching Strategy
+
+**Branching Strategy:**
+- **Main Branch**: Production-ready code only. Never commit directly to main.
+- **Feature Branches**: Create separate branches for all fixes and features (e.g., `fix/api-base-config`, `feature/new-dashboard`).
+- **Testing**: Test all changes in production environment before merging to main.
+- **Merging**: Only merge to main after confirming production deployment works correctly.
+
+**API Configuration:**
+- **Production**: Frontend uses `/api` (nginx proxies to backend:3001)
+- **Development**: Frontend uses `http://localhost:3001/api` (direct backend connection)
+- **No Environment Variables**: API_BASE is hardcoded in vite.config.ts based on build mode to prevent production misconfigurations
+
+**Recent Critical Fix:**
+- **Issue**: Production frontend was connecting to full domain URLs instead of relative `/api` paths
+- **Root Cause**: Environment variable overrides in production deployment
+- **Solution**: Hardcoded API_BASE in vite.config.ts based on build mode
+- **Prevention**: Always test production builds before merging to main
