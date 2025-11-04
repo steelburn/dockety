@@ -5,9 +5,46 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-images:
-    name: Build frontend & backend images
+  # Check for changes
+  changes:
     runs-on: [self-hosted, ubuntu-latest]
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Check for file changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'components/**'
+              - 'services/**'
+              - 'hooks/**'
+              - 'public/**'
+              - 'index.html'
+              - 'index.tsx'
+              - 'index.css'
+              - 'vite.config.ts'
+              - 'tailwind.config.js'
+              - 'postcss.config.js'
+              - 'Dockerfile'
+              - 'nginx.conf'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/ci.yml'
+
+  build-backend:
+    name: Build backend image
+    runs-on: [self-hosted, ubuntu-latest]
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -36,6 +73,28 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/dockety-backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  build-frontend:
+    name: Build frontend image
+    runs-on: [self-hosted, ubuntu-latest]
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_PAT }}
 
       - name: Build frontend image
         uses: docker/build-push-action@v6
