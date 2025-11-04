@@ -67,7 +67,8 @@ If you want additions, tell me which workflows or files you'd like expanded (e.g
 - **Status**: ✅ FIXED - Mode-based defaults prevent environment variable overrides
 
 **Deployment Best Practices:**
-- **Image Rebuilding**: Always rebuild and push Docker images after configuration changes
+- **Image Building**: AI agents can build Docker images locally for testing
+- **Image Pushing**: Must be done manually by developers (requires authentication)
 - **Environment Testing**: Test production builds locally before deployment
 - **API_BASE Validation**: Verify API_BASE uses `/api` in production, not full URLs
 - **Registry Updates**: Push updated images to GHCR after fixes before redeploying
