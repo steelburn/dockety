@@ -52,12 +52,37 @@ Dockety is architected as a multi-container application and is deployed using Do
 3.  **Access Dockety:**
     Open your web browser and navigate to `http://localhost:8090`.
 
-## 🐳 Multi-Host Docker Support
+### Local Development Setup
 
-Dockety supports connecting to multiple Docker hosts:
+For local development without Docker:
 
-- **Local Docker**: Connects to your local Docker daemon via Unix socket
-- **Remote Docker**: Connect to remote Docker daemons via TCP/HTTP (with optional TLS and socket proxy support)
+1. **Backend Setup:**
+   ```bash
+   cd backend
+   npm install
+   npm run dev  # Runs on port 3001
+   ```
+
+2. **Frontend Setup:**
+   ```bash
+   npm install
+   npm run dev  # Runs on port 3002
+   ```
+
+3. **Environment Variables:**
+   - Frontend automatically connects to `http://localhost:3001/api` in development
+   - In production, set `VITE_API_BASE=/api` for nginx proxy routing
+
+### Multi-Host Docker Support
+
+Dockety supports managing multiple Docker hosts from a single interface:
+- **Local Docker**: Default host using local Docker socket (`/var/run/docker.sock`)
+- **Remote Hosts**: TCP connections with optional TLS encryption
+- **Socket Proxy**: Secure remote access via SSH tunneling
+- **Host Management**: Add, test, and remove Docker hosts through the UI
+- **Per-Host Operations**: All Docker operations (containers, images, networks, volumes) are host-specific
+
+Configure additional hosts through the Hosts section in the web interface.
 
 ### Adding Remote Hosts
 
@@ -94,7 +119,7 @@ Dockety provides two Docker Compose configurations:
 - **`docker-compose.yml`**: Production deployment using pre-built images from GitHub Container Registry
 - **`docker-compose.dev.yml`**: Development deployment that builds images locally from source code
 
-The backend supports multiple Docker host connections simultaneously, allowing you to monitor and manage containers across different environments. All API requests from the frontend are proxied through the Nginx server to the backend, ensuring seamless communication without CORS issues.
+The backend supports multiple Docker host connections simultaneously, allowing you to monitor and manage containers across different environments. The frontend uses configurable API endpoints - in development it connects directly to the backend, while in production requests are proxied through Nginx.
 
 ### Host Management
 
@@ -104,16 +129,38 @@ The application maintains a persistent SQLite database of configured Docker host
 
 Docker client instances are cached per host for optimal performance and connection management.
 
+### Error Monitoring
+
+Dockety integrates Sentry for comprehensive error tracking and monitoring:
+- **Frontend**: React error boundaries capture UI crashes and JavaScript errors
+- **Backend**: Express middleware logs API failures and Docker operation errors
+- **Production Ready**: Environment-based Sentry DSN configuration for different deployment stages
+
+Configure Sentry by setting the `SENTRY_DSN` environment variable in your deployment environment.
+
+### Styling
+
+Dockety uses **Tailwind CSS via CDN** for styling:
+- **No Build Step**: Tailwind is loaded directly from CDN, eliminating PostCSS compilation
+- **Performance**: Faster builds and smaller bundle sizes
+- **Simplicity**: No additional build configuration or dependencies required
+- **Modern UI**: Clean, responsive design with utility-first CSS approach
+
+This approach prioritizes development speed and deployment simplicity over advanced customization needs.
+
 ### CI/CD Pipeline
 
-Dockety includes a GitHub Actions CI pipeline that:
-- Builds Docker images for both frontend and backend services
-- Pushes images to GitHub Container Registry (ghcr.io) with both `:latest` and unique PR tags
-- Provides automated testing and deployment capabilities
+Dockety includes an optimized GitHub Actions CI pipeline that:
+- **Smart Builds**: Only builds frontend/backend images when respective code changes
+- **Path Filtering**: Uses git diff to detect which services need rebuilding
+- **Parallel Jobs**: Separate build jobs for frontend and backend run concurrently when both change
+- **Automated Publishing**: Pushes images to GitHub Container Registry with both `:latest` and unique PR tags
 
 Images are available at:
 - `ghcr.io/steelburn/dockety-frontend:latest`
 - `ghcr.io/steelburn/dockety-backend:latest`
+
+This optimization significantly reduces CI execution time and costs when only one service is modified.
 
 ### Stopping the Application
 To stop the containers, run:
@@ -125,3 +172,60 @@ docker-compose down
 docker-compose -f docker-compose.dev.yml down
 ```
 This will stop the containers but will preserve your SQLite database in the `data` volume. To remove the database volume as well, use `docker-compose down -v`.
+
+## Troubleshooting
+
+### Common Issues
+
+**API Connection Failed**
+- **Production**: Ensure `VITE_API_BASE` environment variable is set correctly (defaults to `/api`)
+- **Development**: Check that backend is running on port 3001 and frontend on port 3002
+- **Docker**: Verify nginx proxy configuration and container networking
+
+**Docker Host Connection Issues**
+- **Local**: Ensure Docker daemon is running and accessible via `/var/run/docker.sock`
+- **Remote**: Test connection using the host management interface
+- **Permissions**: Backend container needs Docker socket access when using local host
+
+**Build Issues**
+- **Dependencies**: Run `npm install` in both root and `backend/` directories
+- **Docker**: Ensure Docker daemon is running for containerized builds
+- **CI/CD**: Check GitHub Actions logs for detailed error information
+
+**Database Issues**
+- **File Permissions**: Ensure write access to `./data/` directory for SQLite database
+- **Migrations**: Database schema updates are handled automatically on startup
+- **Backup**: Regularly backup `dockety.db` file for data persistence
+
+### Getting Help
+
+- Check the [Issues](https://github.com/steelburn/dockety/issues) page for known problems
+- Review backend logs for detailed error information
+- Test API endpoints directly using tools like curl or Postman
+
+## Contributing
+
+### Development Setup
+1. Fork the repository
+2. Clone your fork: `git clone https://github.com/yourusername/dockety.git`
+3. Install dependencies: `npm install && cd backend && npm install`
+4. Start development servers: `npm run dev` (frontend) and `cd backend && npm run dev` (backend)
+5. Make your changes and test thoroughly
+6. Submit a pull request with a clear description of your changes
+
+### Code Style
+- **Frontend**: TypeScript with React hooks, functional components preferred
+- **Backend**: TypeScript with Express.js, RESTful API design
+- **Database**: SQLite with migrations handled automatically
+- **Docker**: Multi-stage builds, optimized for production
+
+### Testing
+- Test all Docker operations across different host configurations
+- Verify both local development and production deployments
+- Check API endpoints with various parameter combinations
+- Validate UI responsiveness and error handling
+
+### Commit Guidelines
+- Use clear, descriptive commit messages
+- Reference issue numbers when applicable
+- Keep commits focused on single changes or features
