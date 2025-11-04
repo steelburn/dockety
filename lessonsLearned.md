@@ -83,10 +83,12 @@ This file tracks development issues encountered and their solutions for future r
 **Current Configuration (Simplified):**
 - Frontend: `http://localhost:3002` (Vite dev server)
 - Backend: `http://localhost:3001` (Express server)
-- API calls: Direct HTTP to backend URL
-- No proxy configuration needed
+- API calls: Configurable via `VITE_API_BASE` env var
+  - Development: `http://localhost:3001/api`
+  - Production: `/api` (nginx proxy)
 - CORS enabled on backend
 - Docker dev: Backend exposed on port 3001, Frontend on port 8090 with nginx proxy
+- Tailwind CSS: Loaded via CDN (intentional design choice)
 
 **Testing API Connectivity:**
 ```bash
@@ -126,3 +128,47 @@ curl -s http://localhost:3001/api/auth/is-first-user
 - `docker-compose.dev.yml`: Added `ports: - "3001:3001"` for backend service
 
 **Prevention:** Always update Docker configurations when changing port assignments or network setups.
+
+## Issue: Production deployment API connection failures
+
+**Date:** November 4, 2025  
+**Symptoms:**
+- Frontend deployed to production tries to connect to `http://localhost:3001`
+- API calls fail with `ERR_CONNECTION_REFUSED` in production
+- Login attempts fail because backend is not accessible
+
+**Root Cause:**
+- `API_BASE` in `services/dockerService.ts` was hardcoded to `http://localhost:3001/api`
+- No environment variable configuration for different deployment environments
+- Frontend assumes backend is always on localhost:3001
+
+**Solution:**
+1. Made `API_BASE` configurable via `VITE_API_BASE` environment variable
+2. Added Vite environment types (`vite-env.d.ts`) for TypeScript support
+3. Set default to `/api` for production (nginx proxy), `http://localhost:3001/api` for development
+4. Updated Vite config to inject environment variables
+
+**Files Changed:**
+- `services/dockerService.ts`: Changed to `import.meta.env.VITE_API_BASE || 'http://localhost:3001/api'`
+- `vite.config.ts`: Added `VITE_API_BASE` environment variable definition
+- `vite-env.d.ts`: Added TypeScript types for Vite environment variables
+
+**Prevention:** Always use environment variables for API endpoints instead of hardcoded URLs. Test deployments in staging environments before production.
+
+## Issue: Tailwind CSS CDN usage in production
+
+**Date:** November 4, 2025  
+**Symptoms:**
+- Console warning: `cdn.tailwindcss.com should not be used in production`
+- Tailwind CSS loaded from external CDN instead of bundled
+
+**Root Cause:**
+- Initial setup used Tailwind CDN for simplicity
+- Production deployments prefer bundled CSS for performance and reliability
+
+**Decision:**
+- Keep Tailwind CSS CDN approach as requested
+- Document this as intentional design choice
+- Accept console warning as acceptable trade-off for simplicity
+
+**Prevention:** Document styling approach decisions clearly. CDN vs bundling is a conscious choice based on project needs.

@@ -13,13 +13,14 @@ How to run
 - Local dev: (frontend) `npm install && npm run dev` at repo root (runs on port 3002); (backend) `cd backend && npm install && npm run dev` (runs on port 3001, no proxy needed).
 
 Important conventions & gotchas
-- **API Routing**: All backend routes are prefixed with `/api/` (e.g., `/api/auth/login`, `/api/containers`). Frontend makes direct HTTP calls to `http://localhost:3001/api/*` (no proxy needed).
+- **API Routing**: All backend routes are prefixed with `/api/` (e.g., `/api/auth/login`, `/api/containers`). Frontend API base URL is configurable via `VITE_API_BASE` env var (defaults to `/api` in production, `http://localhost:3001/api` in development).
 - All frontend → backend API calls use an optional `hostId` query param. When absent the default host id is `local-docker` (see `backend/src/database.ts`).
 - `services/dockerService.ts` centralizes HTTP calls and uses `handleResponse()`; 204 responses map to undefined. `getContainerLogs` returns plain text (not JSON). `removeImage` prepends `sha256:` when needed.
 - The backend prevents deleting the last host (see `databaseService.removeHost`) — treat host removal carefully in automation.
 - Editing Compose files from the UI is intentionally a no-op; the backend does not modify running compose files (`updateComposeFile()` is a no-op).
 - When running containerized, backend needs access to `/var/run/docker.sock` for local Docker host operations. Remote hosts are supported via TCP (with optional TLS) or via a socket proxy.
 - Network Map uses React Flow for visualization: nodes are draggable, orphaned resources appear on the right side, layout prevents overlaps.
+- **Styling**: Uses Tailwind CSS loaded via CDN (not PostCSS build) - keep this approach for future development.
 - **Database Schema**: User table uses `password_hash`, `is_approved`, `created_at` columns but TypeScript interfaces use `passwordHash`, `isApproved`, `createdAt` - database service handles mapping.
 
 Key files to inspect/edit
