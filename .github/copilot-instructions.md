@@ -10,10 +10,10 @@ Key architecture
 
 How to run
 - Recommended (Docker): make `run.sh` executable and run it. It prefers Docker if available and will build/run the app with docker-compose. Useful flags: `--no-cache`, `--no-docker` (force local flow), `--image NAME`.
-- Local dev: (frontend) `npm install && npm run dev` at repo root (runs on port 3001); (backend) `cd backend && npm install && npm run dev` (runs on port 3002 with frontend proxy configured).
+- Local dev: (frontend) `npm install && npm run dev` at repo root (runs on port 3002); (backend) `cd backend && npm install && npm run dev` (runs on port 3001, no proxy needed).
 
 Important conventions & gotchas
-- **API Routing**: All backend routes are prefixed with `/api/` (e.g., `/api/auth/login`, `/api/containers`). Frontend proxy forwards `/api/*` to backend.
+- **API Routing**: All backend routes are prefixed with `/api/` (e.g., `/api/auth/login`, `/api/containers`). Frontend makes direct HTTP calls to `http://localhost:3001/api/*` (no proxy needed).
 - All frontend → backend API calls use an optional `hostId` query param. When absent the default host id is `local-docker` (see `backend/src/database.ts`).
 - `services/dockerService.ts` centralizes HTTP calls and uses `handleResponse()`; 204 responses map to undefined. `getContainerLogs` returns plain text (not JSON). `removeImage` prepends `sha256:` when needed.
 - The backend prevents deleting the last host (see `databaseService.removeHost`) — treat host removal carefully in automation.

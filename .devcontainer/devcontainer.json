@@ -1,6 +1,10 @@
 {
     "name": "Dockety Development",
-    "dockerFile": "Dockerfile",
+    // Use the repository root Dockerfile so the container matches the project's Dockerfile
+    "build": {
+        "dockerfile": "../Dockerfile",
+        "context": ".."
+    },
     // Configure tool-specific properties.
     "customizations": {
         // Configure properties specific to VS Code.
@@ -11,26 +15,35 @@
                 "esbenp.prettier-vscode",
                 "ms-vscode.vscode-json",
                 "bradlc.vscode-tailwindcss",
-                "ms-vscode.vscode-eslint"
+                "dbaeumer.vscode-eslint",
+                "ms-azuretools.vscode-docker",
+                "eamodio.gitlens"
             ]
         }
     },
+    // Mount the workspace at a predictable path inside the container
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/dockety,type=bind,consistency=cached",
+    "workspaceFolder": "/workspace/dockety",
     // Use 'forwardPorts' to make a list of ports inside the container available locally.
     "forwardPorts": [
         3001,
         5173,
+        3002,
         8090
     ],
     // Use 'postCreateCommand' to run commands after the container is created.
     "postCreateCommand": "npm install && cd backend && npm install",
+    // A friendly message after the container starts (not required to run services)
+    "postStartCommand": "echo 'Dev container ready – run frontend: npm run dev (root) or npm run dev --prefix backend for backend'",
     // Configure tool-specific properties.
     "remoteUser": "node",
-    // Mount the Docker socket so the application can communicate with Docker
+    // Mount the Docker socket so the application can communicate with Docker when needed
     "mounts": [
         "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
     ],
     // Set environment variables
     "containerEnv": {
-        "DOCKER_HOST": "unix:///var/run/docker.sock"
+        "DOCKER_HOST": "unix:///var/run/docker.sock",
+        "NODE_ENV": "development"
     }
 }

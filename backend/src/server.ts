@@ -7,7 +7,7 @@ import { dockerApiService, initializeDockerInstances } from './dockerApi';
 import { Host } from './types';
 
 const app = express();
-const port = process.env.PORT || 3002;
+const port = parseInt(process.env.PORT || '3001', 10);
 const JWT_SECRET = 'dockety-secret-key'; // TODO: Use environment variable in production
 
 // Logging utility
@@ -549,7 +549,7 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 });
 
 
-app.listen(port, async () => {
+app.listen(port, '0.0.0.0', async () => {
     log.info(`Dockety backend listening on port ${port}`);
 
     // Initialize Docker instances for all configured hosts

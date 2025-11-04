@@ -5,6 +5,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: dockety_backend
+    ports:
+      - "3001:3001"
     volumes:
       # Mount the Docker socket to allow the backend to manage Docker
       - /var/run/docker.sock:/var/run/docker.sock

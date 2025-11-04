@@ -1,6 +1,6 @@
 import { Host, Container, Image, Volume, Network, SystemInfo, DockerStats, ComposeProject, PruneReport, User } from '../types';
 
-const API_BASE = '/api';
+const API_BASE = 'http://localhost:3001/api';
 
 const handleResponse = async <T>(response: Response): Promise<T> => {
     if (!response.ok) {

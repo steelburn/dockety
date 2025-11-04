@@ -10,6 +10,7 @@
     "start": "concurrently \"npm run dev\" \"cd backend && npm run dev\""
   },
   "dependencies": {
+    "@sentry/react": "^10.22.0",
     "@xyflow/react": "^12.9.0",
     "better-sqlite3": "^12.4.1",
     "cors": "^2.8.5",

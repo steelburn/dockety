@@ -1,9 +1,25 @@
 import React from 'react';
 import { Host } from '../types';
+import * as Sentry from '@sentry/react';
 
 const ServerIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>;
 
 const MenuIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>;
+
+// Add this button component to your app to test Sentry's error tracking
+function ErrorButton() {
+  return (
+    <button
+      onClick={() => {
+        throw new Error('This is your first error!');
+      }}
+      className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-sm"
+      title="Test Sentry error tracking"
+    >
+      Test Error
+    </button>
+  );
+}
 
 
 interface HeaderProps {
@@ -22,6 +38,9 @@ export const Header: React.FC<HeaderProps> = ({ hosts, selectedHost, setSelected
       setSelectedHost(host);
     }
   };
+
+  // Show debug button only when ?debug=true is in URL
+  const isDebugMode = new URLSearchParams(window.location.search).get('debug') === 'true';
 
   return (
     <header className="flex items-center justify-between p-4 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 h-16">
@@ -51,6 +70,7 @@ export const Header: React.FC<HeaderProps> = ({ hosts, selectedHost, setSelected
         {user && (
           <>
             <span className="text-gray-900 dark:text-white">Welcome, {user.username}</span>
+            {isDebugMode && <ErrorButton />}
             <button
               onClick={onLogout}
               className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
