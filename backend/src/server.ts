@@ -1,3 +1,7 @@
+// IMPORTANT: Make sure to import `instrument.js` at the top of your file.
+// If you're using ECMAScript Modules (ESM) syntax, use `import "./instrument.js";`
+require("./instrument.js");
+
 import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
@@ -5,6 +9,9 @@ import jwt from 'jsonwebtoken';
 import { databaseService } from './database';
 import { dockerApiService, initializeDockerInstances } from './dockerApi';
 import { Host } from './types';
+
+// Import with `import * as Sentry from "@sentry/node"` if you are using ESM
+import * as Sentry from "@sentry/node";
 
 const app = express();
 const port = parseInt(process.env.PORT || '3001', 10);
@@ -536,7 +543,22 @@ app.get('/api/health', (req, res) => {
     res.json(response);
 });
 
+app.get("/debug-sentry", function mainHandler(req, res) {
+  throw new Error("My first Sentry error!");
+});
+
 // --- Error Handling ---
+// The error handler must be registered before any other error middleware and after all controllers
+Sentry.setupExpressErrorHandler(app);
+
+// Optional fallthrough error handler
+app.use(function onError(err: Error, req: express.Request, res: express.Response, next: express.NextFunction) {
+    // The error id is attached to `res.sentry` to be returned
+    // and optionally displayed to the user for support.
+    res.statusCode = 500;
+    res.end((res as any).sentry + "\n");
+});
+
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
     log.error(`Request error: ${err.message}`, {
         method: req.method,
