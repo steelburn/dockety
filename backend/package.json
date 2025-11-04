@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "start": "node dist/server.js",
-    "build": "tsc",
+    "build": "tsc && cp src/instrument.js dist/",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts"
   },
   "author": "",
