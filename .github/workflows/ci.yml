@@ -1,6 +1,8 @@
 name: CI — build images
 
 on:
+  push:
+    branches: [ main ]
   pull_request:
   workflow_dispatch:
 

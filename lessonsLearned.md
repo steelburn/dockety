@@ -172,3 +172,42 @@ curl -s http://localhost:3001/api/auth/is-first-user
 - Accept console warning as acceptable trade-off for simplicity
 
 **Prevention:** Document styling approach decisions clearly. CDN vs bundling is a conscious choice based on project needs.
+
+## Issue: Production API_BASE configuration overridden by environment variables
+
+**Date:** November 4, 2025  
+**Symptoms:**
+- Production deployment tries to connect to `https://dockety.comulo.app/api/auth/is-first-user`
+- API calls fail with 404 errors
+- Frontend uses full domain URL instead of relative `/api` path
+- JSON parsing errors: "Unexpected token '<', "<!DOCTYPE "... is not valid JSON"
+
+**Root Cause:**
+- Production environment had `VITE_API_BASE` set to full domain URL `https://dockety.comulo.app`
+- Vite config allowed environment variables to override production defaults
+- Frontend tried to make cross-origin requests instead of using nginx proxy
+
+**Solution:**
+1. Modified `vite.config.ts` to explicitly set production defaults
+2. Added mode-based API_BASE defaults: `/api` for production, `http://localhost:3001/api` for development
+3. Prevented incorrect environment variable overrides in production builds
+4. Rebuilt and redeployed frontend image with corrected configuration
+
+**Files Changed:**
+- `vite.config.ts`: Added explicit mode-based defaults for `VITE_API_BASE`
+
+**Prevention:** 
+- Use mode-based defaults in Vite config instead of simple environment variable fallbacks
+- Test production builds locally before deployment
+- Document environment variable usage clearly
+- Validate API_BASE configuration in different deployment environments
+
+**Code Pattern:**
+```typescript
+// Good: Mode-based defaults
+const defaultApiBase = mode === 'production' ? '/api' : 'http://localhost:3001/api';
+'import.meta.env.VITE_API_BASE': JSON.stringify(env.VITE_API_BASE || defaultApiBase)
+
+// Avoid: Simple fallbacks that can be overridden incorrectly
+'import.meta.env.VITE_API_BASE': JSON.stringify(env.VITE_API_BASE || '/api')
+```
