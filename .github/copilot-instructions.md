@@ -59,8 +59,15 @@ If you want additions, tell me which workflows or files you'd like expanded (e.g
 - **Development**: Frontend uses `http://localhost:3001/api` (direct backend connection)
 - **No Environment Variables**: API_BASE is hardcoded in vite.config.ts based on build mode to prevent production misconfigurations
 
-**Recent Critical Fix:**
+**Recent Critical Fix (RESOLVED):**
 - **Issue**: Production frontend was connecting to full domain URLs instead of relative `/api` paths
 - **Root Cause**: Environment variable overrides in production deployment
 - **Solution**: Hardcoded API_BASE in vite.config.ts based on build mode
 - **Prevention**: Always test production builds before merging to main
+- **Status**: ✅ FIXED - Mode-based defaults prevent environment variable overrides
+
+**Deployment Best Practices:**
+- **Image Rebuilding**: Always rebuild and push Docker images after configuration changes
+- **Environment Testing**: Test production builds locally before deployment
+- **API_BASE Validation**: Verify API_BASE uses `/api` in production, not full URLs
+- **Registry Updates**: Push updated images to GHCR after fixes before redeploying

@@ -173,9 +173,10 @@ curl -s http://localhost:3001/api/auth/is-first-user
 
 **Prevention:** Document styling approach decisions clearly. CDN vs bundling is a conscious choice based on project needs.
 
-## Issue: Production API_BASE configuration overridden by environment variables
+## Issue: Production API_BASE configuration overridden by environment variables (RESOLVED)
 
 **Date:** November 4, 2025  
+**Status:** ✅ FIXED  
 **Symptoms:**
 - Production deployment tries to connect to `https://dockety.comulo.app/api/auth/is-first-user`
 - API calls fail with 404 errors
@@ -196,7 +197,7 @@ curl -s http://localhost:3001/api/auth/is-first-user
 **Files Changed:**
 - `vite.config.ts`: Added explicit mode-based defaults for `VITE_API_BASE`
 
-**Prevention:** Use mode-based defaults in Vite config instead of simple environment variable fallbacks. Test production builds locally before deployment. Validate API_BASE configuration in different deployment environments.
+**Prevention:** Use mode-based defaults in Vite config instead of simple environment variable fallbacks. Test production builds locally before deployment. Validate API_BASE configuration in different deployment environments. Always rebuild and redeploy images after configuration changes.
 
 **Code Pattern:**
 ```typescript
@@ -205,6 +206,49 @@ curl -s http://localhost:3001/api/auth/is-first-user
 
 // Avoid: Simple fallbacks that can be overridden incorrectly
 'import.meta.env.VITE_API_BASE': JSON.stringify(env.VITE_API_BASE || '/api')
+```
+
+**Additional Lesson: Image Rebuilding Required**
+- Configuration changes in `vite.config.ts` require rebuilding Docker images
+- Local testing alone is insufficient - production images must be updated
+- Always push rebuilt images to registry before redeploying production
+
+## Issue: Configuration changes require Docker image rebuilds
+
+**Date:** November 4, 2025  
+**Symptoms:**
+- Configuration changes made to `vite.config.ts` or other build-time files
+- Local development works correctly after changes
+- Production deployment still shows old behavior
+- API calls fail despite code fixes
+
+**Root Cause:**
+- Docker images contain the built application, not source code
+- Configuration changes require rebuilding the image to be included
+- Production was running old image with outdated configuration
+
+**Solution:**
+1. Always rebuild Docker images after configuration changes
+2. Test rebuilt images locally before pushing to registry
+3. Push updated images to container registry
+4. Redeploy production containers to pull new images
+
+**Prevention:** 
+- Treat configuration changes like code changes - they require rebuilds
+- Add "rebuild images" to deployment checklist
+- Test production builds locally before registry push
+- Use `--no-cache` flag when rebuilding to ensure clean builds
+
+**Commands:**
+```bash
+# Rebuild with no cache
+docker build --no-cache -t your-app:latest .
+
+# Test locally
+docker run -p 8090:80 your-app:latest
+
+# Push to registry
+docker push ghcr.io/your-org/your-app:latest
 ```
 
 ## Development Workflow: Branching Strategy Implemented
