@@ -56,6 +56,9 @@ Dockety is architected as a multi-container application and is deployed using Do
 
 For local development without Docker:
 
+### Interactive Console
+The interactive container console now uses xterm.js and a WebSocket-based interactive shell for much faster, real-time performance. When opening the console, the UI will establish a websocket connection to the backend and stream I/O to the container shell.
+
 1. **Backend Setup:**
    ```bash
    cd backend
@@ -72,6 +75,36 @@ For local development without Docker:
 3. **Environment Variables:**
    - Frontend automatically connects to `http://localhost:3001/api` in development
    - In production, set `VITE_API_BASE=/api` for nginx proxy routing
+
+   ### Network Map Filters
+
+   The Network Map visualization provides a small set of filters to help you narrow down the resources shown on the map:
+   - **Resource Types**: Toggle display of Containers, Networks, Volumes, Images, and Compose Projects
+   - **Search**: Filter resources by name
+   - **Only Running**: Toggle to show only running containers
+   - **Show Orphaned**: Include or hide orphaned resources that are not connected in the map
+
+   Filters are persisted locally to make it easier to work with large environments.
+
+   - **Keyboard Shortcut**: Toggle the filter panel with <kbd>Shift</kbd>+<kbd>F</kbd> (focuses search). Press <kbd>Esc</kbd> to close.
+
+   #### Manual test
+   1. Open the Network Map in the UI.
+   2. Use the Filters button to open filter panel.
+   3. Toggle resource types and use the search box to verify nodes are hidden/shown.
+   4. Toggle 'Only Running' and 'Show Orphaned' to validate the behavior.
+
+### Compact Legend
+
+The Network Map includes a compact legend (top-right of the map, near the controls) that shows colored lines for edge types:
+- **Network**: Blue
+- **C→N** (Container → Network): Green
+- **Volume**: Orange
+- **Image**: Indigo
+- **Compose**: Purple
+
+This provides a compact, at-a-glance way to understand what different edge colors represent in the map.
+
 
 ### Multi-Host Docker Support
 
