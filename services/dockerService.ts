@@ -384,6 +384,23 @@ export const dockerService = {
         return handleResponse<{ output: string }>(response);
     },
 
+    // Opens a WebSocket connection to the backend to attach to the container's interactive shell
+    openExecSocket: async (hostId: string, containerId: string): Promise<WebSocket> => {
+        const token = localStorage.getItem('token');
+        // Build WebSocket URL
+        let wsUrl = '';
+        if (API_BASE.startsWith('http')) {
+            const baseUrl = new URL(API_BASE);
+            const wsProtocol = baseUrl.protocol === 'https:' ? 'wss' : 'ws';
+            wsUrl = `${wsProtocol}://${baseUrl.host}/api/ws/exec?token=${encodeURIComponent(token || '')}&containerId=${encodeURIComponent(containerId)}&hostId=${encodeURIComponent(hostId)}`;
+        } else {
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            wsUrl = `${wsProtocol}//${window.location.host}${API_BASE}/ws/exec?token=${encodeURIComponent(token || '')}&containerId=${encodeURIComponent(containerId)}&hostId=${encodeURIComponent(hostId)}`;
+        }
+
+        return new WebSocket(wsUrl);
+    },
+
     getImageInspect: async (hostId: string, imageId: string): Promise<any> => {
         const headers = await getHeadersForHost(hostId);
         const response = await fetch(`${API_BASE}/images/${encodeURIComponent(imageId)}/inspect?hostId=${encodeURIComponent(hostId)}`, {

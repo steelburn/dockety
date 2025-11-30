@@ -119,6 +119,74 @@ export const dockerApiService = {
         };
     },
 
+    // Attach a WebSocket stream to a container's interactive shell (TTY)
+    async attachToContainer(ws: any, containerId: string, hostId?: string): Promise<void> {
+        const dockerInstance = getDockerInstance(hostId);
+        log.info(`Starting interactive attach to container ${containerId} on host ${hostId || 'local'}`);
+        const container = dockerInstance.getContainer(containerId);
+        // Try a few common shells for interactive exec
+        const shellCandidates = ['/bin/sh', '/bin/bash', '/bin/ash', '/bin/dash'];
+        let exec: Docker.Exec | null = null;
+        for (const shell of shellCandidates) {
+            try {
+                exec = await container.exec({ Cmd: [shell], AttachStdin: true, AttachStdout: true, AttachStderr: true, Tty: true });
+                break;
+            } catch (err) {
+                log.debug(`Interactive exec with shell ${shell} failed, trying next`);
+            }
+        }
+        if (!exec) {
+            throw new Error('No usable shell found in the container for interactive exec');
+        }
+        const stream = await exec.start({ hijack: true, stdin: true });
+
+        stream.on('data', (chunk: Buffer) => {
+            try { ws.send(chunk.toString('utf8')); } catch (err) { log.warn('Failed to send terminal chunk over websocket', err); }
+        });
+        stream.on('end', () => {
+            log.info(`Interactive exec ended for container ${containerId}`);
+            try { ws.close(); } catch (e) { /* ignore */ }
+        });
+        stream.on('error', (error) => {
+            log.error('Interactive exec stream error', error);
+            try { ws.close(); } catch (e) { /* ignore */ }
+        });
+
+        ws.on('message', (data: any) => {
+            try {
+                // If this is a JSON message with a resize command, handle it
+                if (typeof data === 'string') {
+                    let parsed: any = null;
+                    try {
+                        parsed = JSON.parse(data);
+                    } catch (_) { parsed = null; }
+
+                    if (parsed && parsed.type === 'resize' && typeof parsed.cols === 'number' && typeof parsed.rows === 'number') {
+                        try {
+                            exec!.resize({ h: parsed.rows, w: parsed.cols });
+                        } catch (err) {
+                            log.warn('Failed to resize exec TTY', err);
+                        }
+                        return;
+                    }
+                }
+
+                // Accept string data or binary and write to stdin
+                if (typeof data === 'string') {
+                    stream.write(Buffer.from(data));
+                } else {
+                    stream.write(data);
+                }
+            } catch (err) {
+                log.warn('Failed to write to exec stdin', err);
+            }
+        });
+
+        ws.on('close', () => {
+            try { stream.end(); } catch (e) { /* ignore */ }
+        });
+    },
+
     async getStats(hostId?: string): Promise<DockerStats> {
         log.debug(`Calculating Docker system statistics for host ${hostId || 'local'}`);
         const dockerInstance = getDockerInstance(hostId);
@@ -324,8 +392,17 @@ export const dockerApiService = {
         return new Promise((resolve, reject) => {
             let output = '';
             stream.on('data', (chunk: Buffer) => {
-                // Remove the 8-byte header
-                output += chunk.slice(8).toString('utf8');
+                try {
+                    // Docker prepends an 8-byte header on non-TTY streams.
+                    const header = chunk.slice(0, 8);
+                    if (header[0] === 0 && header[1] === 0 && header[2] === 0 && header[3] === 0) {
+                        output += chunk.slice(8).toString('utf8');
+                    } else {
+                        output += chunk.toString('utf8');
+                    }
+                } catch (e) {
+                    output += chunk.toString('utf8');
+                }
             });
             stream.on('end', () => {
                 log.info(`Command execution completed in container ${containerId} on host ${hostId || 'local'}, output length: ${output.length}`);

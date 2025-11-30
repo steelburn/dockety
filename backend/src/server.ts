@@ -3,6 +3,8 @@
 require("./instrument.js");
 
 import express from 'express';
+import http from 'http';
+import { WebSocketServer, WebSocket } from 'ws';
 import cors from 'cors';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
@@ -571,7 +573,57 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 });
 
 
-app.listen(port, '0.0.0.0', async () => {
+const httpServer = http.createServer(app);
+
+// WebSocket server for interactive exec/attach
+const wss = new WebSocketServer({ noServer: true });
+
+httpServer.on('upgrade', (request, socket, head) => {
+    // Allow only our exec path
+    const url = new URL(request.url || '', `http://${request.headers.host}`);
+    if (url.pathname === '/api/ws/exec') {
+        wss.handleUpgrade(request, socket, head, (ws: WebSocket) => {
+            wss.emit('connection', ws, request);
+        });
+    } else {
+        socket.destroy();
+    }
+});
+
+wss.on('connection', async (ws: WebSocket, request: http.IncomingMessage) => {
+    // Parse query params
+    const url = new URL(request.url || '', `http://${request.headers.host}`);
+    const token = url.searchParams.get('token');
+    const containerId = url.searchParams.get('containerId');
+    const hostId = url.searchParams.get('hostId');
+
+    // Validate token
+    try {
+        if (!token) {
+            ws.close();
+            return;
+        }
+        const user = jwt.verify(token, JWT_SECRET);
+        (request as any).user = user;
+    } catch (err) {
+        ws.close();
+        return;
+    }
+
+    if (!containerId) {
+        ws.close();
+        return;
+    }
+
+    try {
+        await dockerApiService.attachToContainer(ws, containerId, hostId || undefined);
+    } catch (error) {
+        console.error('Failed to attach to container via websocket', error);
+        try { ws.close(); } catch (e) { /* noop */ }
+    }
+});
+
+httpServer.listen(port, '0.0.0.0', async () => {
     log.info(`Dockety backend listening on port ${port}`);
 
     // Initialize Docker instances for all configured hosts

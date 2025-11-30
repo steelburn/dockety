@@ -12,13 +12,17 @@
   "dependencies": {
     "@sentry/node": "^10.22.0",
     "@sentry/react": "^10.22.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
     "@xyflow/react": "^12.9.0",
     "better-sqlite3": "^12.4.1",
     "cors": "^2.8.5",
     "dockerode": "^4.0.9",
     "express": "^5.1.0",
+    "node-fetch": "^3.3.2",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.16",

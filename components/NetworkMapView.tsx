@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     ReactFlow,
     Node,
@@ -87,6 +87,14 @@ const nodeTypes = {
 };
 
 export const NetworkMapView: React.FC<NetworkMapViewProps> = ({ host }) => {
+    /**
+     * Network Map Filters
+     * - Resource Types: Toggle which resource types to show (containers, networks, volumes, images, compose)
+     * - Search: Text search for resource names
+     * - Only running: Show only containers that are currently running
+     * - Show orphaned: Toggle display of orphaned resources placed on the right side
+     * Filters are persisted to localStorage under 'networkMapFilters'
+     */
     const [containers, setContainers] = useState<Container[]>([]);
     const [networks, setNetworks] = useState<Network[]>([]);
     const [volumes, setVolumes] = useState<Volume[]>([]);
@@ -95,6 +103,53 @@ export const NetworkMapView: React.FC<NetworkMapViewProps> = ({ host }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedNode, setSelectedNode] = useState<ResourceNode | null>(null);
+    // Filters for map (resource types, search, state)
+    const [filters, setFilters] = useState(() => {
+        try {
+            const raw = localStorage.getItem('networkMapFilters');
+            if (raw) return JSON.parse(raw);
+        } catch (e) {
+            // ignore
+        }
+        return { resourceTypes: { container: true, network: true, volume: true, image: true, compose: true }, search: '', runningOnly: false, showOrphaned: true };
+    });
+    const [filterOpen, setFilterOpen] = useState(false);
+    const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+    // Keyboard shortcut: Shift+F toggles filter panel and focuses search input
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            // Ignore if typing into inputs
+            const target = e.target as HTMLElement | null;
+            if (target) {
+                const tag = target.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable) return;
+            }
+
+            if (e.key === 'Escape') {
+                setFilterOpen(false);
+                return;
+            }
+            if (e.key.toLowerCase() === 'f' && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                e.preventDefault();
+                setFilterOpen(prev => {
+                    const next = !prev;
+                    if (next) {
+                        // Focus after next tick so element exists
+                        setTimeout(() => searchInputRef.current?.focus(), 50);
+                    }
+                    return next;
+                });
+            }
+        };
+        document.addEventListener('keydown', onKeyDown);
+        return () => document.removeEventListener('keydown', onKeyDown);
+    }, []);
+
+    // Persist filters to localStorage
+    useEffect(() => {
+        try { localStorage.setItem('networkMapFilters', JSON.stringify(filters)); } catch (e) { /* noop */ }
+    }, [filters]);
 
     const [nodes, setNodes, onNodesChange] = useNodesState<ResourceNode>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -184,14 +239,40 @@ export const NetworkMapView: React.FC<NetworkMapViewProps> = ({ host }) => {
             networkY += ROW_SPACING;
 
             // Mark connected containers and compose projects
-            network.containers.forEach(c => connectedNodeIds.add(`container-${c}`));
+            // Note: network.containers contains container names, not IDs. Look up the container by name or id.
+            network.containers.forEach(containerRef => {
+                const foundContainer = containers.find(ct => ct.name === containerRef || ct.id === containerRef);
+                if (foundContainer) {
+                    connectedNodeIds.add(`container-${foundContainer.id}`);
+                    // create an edge between the network and container (covers multi-network setups)
+                    const id_ = `edge-${foundContainer.id}-network-${network.id}`;
+                    if (!edges.find(e => e.id === id_)) {
+                        edges.push({
+                        id: `edge-${foundContainer.id}-network-${network.id}`,
+                        source: `container-${foundContainer.id}`,
+                        target: `network-${network.id}`,
+                        type: 'smoothstep',
+                        style: { stroke: '#3b82f6', strokeWidth: 2 },
+                        animated: true,
+                        label: 'network',
+                        // Add arrowhead when supported by the flow component
+                        arrowHeadType: 'arrowclosed' as any,
+                    });
+                    }
+                }
+            });
             network.composeProjects.forEach(p => connectedNodeIds.add(`compose-${p}`));
         });
 
         // Add containers (left side, bottom)
         containers.forEach((container, index) => {
             const nodeId = `container-${container.id}`;
-            const isOrphaned = !connectedNodeIds.has(nodeId);
+            // Try to find the network object by id or name. Sometimes the backend stores a name.
+            const containerNetworkObj = networks.find(n => n.id === container.network || n.name === container.network);
+            const hasCompose = !!container.composeProject;
+            const hasNetwork = !!containerNetworkObj;
+            const hasVolumes = (container.volumes || []).length > 0;
+            const isOrphaned = !connectedNodeIds.has(nodeId) && !hasCompose && !hasNetwork && !hasVolumes;
             const x = isOrphaned ? ORPHANED_X_OFFSET : 50 + (COLUMN_SPACING * 2);
             const y = isOrphaned ? orphanedY : containerY + (index % 4) * ROW_SPACING;
 
@@ -203,7 +284,7 @@ export const NetworkMapView: React.FC<NetworkMapViewProps> = ({ host }) => {
                     name: container.name,
                     status: container.state,
                     resourceType: 'container',
-                    resourceData: { type: 'container', ...container }
+                    resourceData: { type: 'container', ...container, isOrphaned }
                 },
                 draggable: true,
             });
@@ -215,14 +296,22 @@ export const NetworkMapView: React.FC<NetworkMapViewProps> = ({ host }) => {
             }
 
             // Connect container to its network
-            if (container.network) {
-                edges.push({
-                    id: `edge-${container.id}-network`,
-                    source: nodeId,
-                    target: `network-${container.network}`,
-                    type: 'smoothstep',
-                    style: { stroke: '#10b981', strokeWidth: 2 },
-                });
+            if (containerNetworkObj) {
+                const edgeId = `edge-${container.id}-network-${containerNetworkObj.id}`;
+                if (!edges.find(e => e.id === edgeId)) {
+                    edges.push({
+                        id: edgeId,
+                        source: nodeId,
+                        target: `network-${containerNetworkObj.id}`,
+                        type: 'smoothstep',
+                        style: { stroke: '#10b981', strokeWidth: 2 },
+                        animated: true,
+                        label: 'network',
+                        arrowHeadType: 'arrowclosed' as any,
+                    });
+                }
+                // Mark as connected
+                connectedNodeIds.add(nodeId);
             }
 
             // Connect container to its compose project
@@ -251,7 +340,7 @@ export const NetworkMapView: React.FC<NetworkMapViewProps> = ({ host }) => {
                 data: {
                     name: volume.name,
                     resourceType: 'volume',
-                    resourceData: { type: 'volume', ...volume }
+                    resourceData: { type: 'volume', ...volume, isOrphaned }
                 },
                 draggable: true,
             });
@@ -266,18 +355,24 @@ export const NetworkMapView: React.FC<NetworkMapViewProps> = ({ host }) => {
             volume.containers.forEach(containerName => {
                 const container = containers.find(c => c.name === containerName);
                 if (container) {
-                    edges.push({
-                        id: `edge-${volume.name}-${container.id}`,
-                        source: `container-${container.id}`,
-                        target: nodeId,
-                        type: 'smoothstep',
-                        style: { stroke: '#f59e0b', strokeWidth: 2 },
-                    });
+                    const volEdgeId = `edge-${volume.name}-${container.id}`;
+                    if (!edges.find(e => e.id === volEdgeId)) {
+                        edges.push({
+                            id: volEdgeId,
+                            source: `container-${container.id}`,
+                            target: nodeId,
+                            type: 'smoothstep',
+                            style: { stroke: '#f59e0b', strokeWidth: 2 },
+                            animated: true,
+                            label: 'volume',
+                            arrowHeadType: 'arrowclosed' as any,
+                        });
+                    }
                 }
             });
         });
 
-        // Add images (bottom, orphaned section)
+        // Add images (bottom, orphaned section) and connect them to containers that use the image
         images.slice(0, 15).forEach((image, index) => { // Limit for performance
             const nodeId = `image-${image.id}`;
             const x = ORPHANED_X_OFFSET + (COLUMN_SPACING * 2) + (index % 3) * 200;
@@ -290,9 +385,50 @@ export const NetworkMapView: React.FC<NetworkMapViewProps> = ({ host }) => {
                 data: {
                     name: image.tags.length > 0 ? image.tags[0] : image.id.substring(7, 19),
                     resourceType: 'image',
-                    resourceData: { type: 'image', ...image }
+                    resourceData: { type: 'image', ...image, isOrphaned: true }
                 },
                 draggable: true,
+            });
+            // Link containers that use this image to this image node
+            // Prefer explicit container lists from the Image object when available
+            (image.containers || []).forEach(containerRef => {
+                const foundContainer = containers.find(ct => ct.name === containerRef || ct.id === containerRef);
+                if (foundContainer) {
+                    const imgEdgeId = `edge-container-${foundContainer.id}-image-${image.id}`;
+                    if (!edges.find(e => e.id === imgEdgeId)) {
+                        edges.push({
+                            id: imgEdgeId,
+                            source: `container-${foundContainer.id}`,
+                            target: nodeId,
+                            type: 'smoothstep',
+                            style: { stroke: '#6366f1', strokeWidth: 2 },
+                            animated: true,
+                            label: 'image',
+                            arrowHeadType: 'arrowclosed' as any,
+                        });
+                    }
+                }
+            });
+            // Fallback: match by container.image string to tag or image id
+            containers.forEach(container => {
+                const containerImage = container.image || '';
+                const matchesTag = image.tags && image.tags.some(tag => tag === containerImage || containerImage.includes(tag));
+                const matchesId = image.id && (image.id === containerImage || image.id.startsWith(containerImage));
+                if ((matchesTag || matchesId) && !edges.find(e => e.id === `edge-container-${container.id}-image-${image.id}`)) {
+                    const imgEdgeId = `edge-container-${container.id}-image-${image.id}`;
+                    if (!edges.find(e => e.id === imgEdgeId)) {
+                        edges.push({
+                            id: imgEdgeId,
+                            source: `container-${container.id}`,
+                            target: nodeId,
+                            type: 'smoothstep',
+                            style: { stroke: '#6366f1', strokeWidth: 2 },
+                            animated: true,
+                            label: 'image',
+                            arrowHeadType: 'arrowclosed' as any,
+                        });
+                    }
+                }
             });
         });
 
@@ -309,8 +445,27 @@ export const NetworkMapView: React.FC<NetworkMapViewProps> = ({ host }) => {
             });
         });
 
-        return { flowNodes: nodes, flowEdges: edges };
-    }, [containers, networks, volumes, images, composeProjects]);
+        // Apply filters to nodes and edges
+        const filteredNodes = nodes.filter(n => {
+            const type = n.data.resourceType as keyof typeof filters.resourceTypes;
+            if (!filters.resourceTypes[type]) return false;
+            if (filters.search && !n.data.name.toLowerCase().includes(filters.search.toLowerCase())) return false;
+            if (filters.runningOnly && n.data.resourceType === 'container' && n.data.status !== 'running') return false;
+            if (!filters.showOrphaned && (n.data.resourceData?.isOrphaned)) return false;
+            return true;
+        });
+
+        const allowedIds = new Set(filteredNodes.map(n => n.id));
+
+        const filteredEdges = edges.filter(e => allowedIds.has(String(e.source)) && allowedIds.has(String(e.target)));
+
+        if (import.meta.env.DEV) {
+            try {
+                console.debug(`NetworkMap: generated nodes=${nodes.length}, edges=${edges.length}, filteredNodes=${filteredNodes.length}, filteredEdges=${filteredEdges.length}`);
+            } catch (e) {}
+        }
+        return { flowNodes: filteredNodes, flowEdges: filteredEdges };
+    }, [containers, networks, volumes, images, composeProjects, filters]);
 
     useEffect(() => {
         setNodes(flowNodes);
@@ -363,6 +518,60 @@ export const NetworkMapView: React.FC<NetworkMapViewProps> = ({ host }) => {
                     >
                         Refresh
                     </button>
+                    <div className="relative">
+                        <button
+                            onClick={() => setFilterOpen(v => !v)}
+                            aria-keyshortcuts="Shift+F"
+                            className="px-3 py-2 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center space-x-2"
+                        >
+                            <span>Filters</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-300 ml-2">Shift+F</span>
+                        </button>
+                        {filterOpen && (
+                            <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow-lg p-3 z-50">
+                                <div className="mb-2">
+                                    <input
+                                        type="text"
+                                        placeholder="Search name..."
+                                        value={filters.search}
+                                        ref={searchInputRef}
+                                        onChange={(e) => setFilters(f => ({ ...f, search: e.target.value }))}
+                                        className="w-full p-2 border rounded bg-gray-50 dark:bg-gray-700 dark:border-gray-600"
+                                    />
+                                </div>
+
+                                <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">Resource Types</div>
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                    {Object.keys(filters.resourceTypes).map((type) => (
+                                        <label key={type} className="inline-flex items-center text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                                            <input
+                                                type="checkbox"
+                                                checked={(filters.resourceTypes as any)[type]}
+                                                onChange={(e) => setFilters(f => ({ ...f, resourceTypes: { ...f.resourceTypes, [type]: e.target.checked } }))}
+                                                className="mr-2"
+                                            />
+                                            <span className="capitalize">{type}</span>
+                                        </label>
+                                    ))}
+                                </div>
+
+                                <div className="flex items-center justify-between text-sm mb-2">
+                                    <label className="inline-flex items-center">
+                                        <input type="checkbox" checked={filters.runningOnly} onChange={(e) => setFilters(f => ({ ...f, runningOnly: e.target.checked }))} className="mr-2" />
+                                        <span>Only running</span>
+                                    </label>
+                                    <label className="inline-flex items-center">
+                                        <input type="checkbox" checked={filters.showOrphaned} onChange={(e) => setFilters(f => ({ ...f, showOrphaned: e.target.checked }))} className="mr-2" />
+                                        <span>Show orphaned</span>
+                                    </label>
+                                </div>
+                                <div className="flex items-center justify-between mt-3">
+                                    <button onClick={() => setFilters({ resourceTypes: { container: true, network: true, volume: true, image: true, compose: true }, search: '', runningOnly: false, showOrphaned: true })} className="px-3 py-1 bg-gray-100 dark:bg-gray-600 rounded text-sm">Clear</button>
+                                    <button onClick={() => setFilterOpen(false)} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">Close</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -431,11 +640,36 @@ export const NetworkMapView: React.FC<NetworkMapViewProps> = ({ host }) => {
                         pannable
                     />
                     <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
-                    <Panel position="top-right">
-                        <div className="text-xs text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 p-2 rounded shadow">
-                            Drag nodes to reposition • Zoom with mouse wheel
-                        </div>
-                    </Panel>
+                        <Panel position="top-right">
+                            <div className="flex flex-col items-end space-y-2">
+                                <div className="text-xs text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 p-2 rounded shadow">
+                                    Drag nodes to reposition • Zoom with mouse wheel
+                                </div>
+                                <div className="text-xs text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 p-2 rounded shadow flex items-center space-x-3">
+                                    {/* Compact legend for edge types */}
+                                    <div className="flex items-center space-x-1">
+                                        <div className="w-6 h-1 bg-blue-500 rounded" />
+                                        <span className="select-none">Network</span>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                        <div className="w-6 h-1 bg-green-500 rounded" />
+                                        <span className="select-none">C→N</span>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                        <div className="w-6 h-1 bg-orange-500 rounded" />
+                                        <span className="select-none">Volume</span>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                        <div className="w-6 h-1 bg-indigo-500 rounded" />
+                                        <span className="select-none">Image</span>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                        <div className="w-6 h-1 bg-purple-500 rounded" />
+                                        <span className="select-none">Compose</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </Panel>
                 </ReactFlow>
             </div>
 
