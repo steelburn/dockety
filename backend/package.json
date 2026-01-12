@@ -27,7 +27,7 @@
     "@types/dockerode": "^3.3.29",
     "@types/express": "^5.0.4",
     "@types/jsonwebtoken": "^9.0.6",
-    "@types/node": "^24.9.1",
+    "@types/node": "^25.0.6",
     "@types/ws": "^8.5.4",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.4.5"
