@@ -21,7 +21,7 @@ function mapNetworkIpam(ipam?: Docker.NetworkInspectInfo['IPAM']): Network['ipam
     }
 
     return {
-        driver: ipam.Driver,
+        driver: ipam.Driver ?? '',
         config: (ipam.Config ?? []).map(config => ({
             subnet: config.Subnet,
             gateway: config.Gateway,
@@ -345,7 +345,9 @@ export const dockerApiService = {
                 attachable: networkDetails?.Attachable,
                 ingress: networkDetails?.Ingress,
                 configOnly: networkDetails?.ConfigOnly,
-                configFrom: networkDetails?.ConfigFrom,
+                configFrom: networkDetails?.ConfigFrom ? {
+                    network: networkDetails.ConfigFrom.Network,
+                } : undefined,
                 options: networkDetails?.Options,
                 labels: networkDetails?.Labels,
                 created: networkDetails?.Created
