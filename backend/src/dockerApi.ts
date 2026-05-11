@@ -15,6 +15,22 @@ const log = {
 // Cache for Docker instances by host ID
 const dockerInstances = new Map<string, Docker>();
 
+function mapNetworkIpam(ipam?: Docker.NetworkInspectInfo['IPAM']): Network['ipam'] {
+    if (!ipam) {
+        return undefined;
+    }
+
+    return {
+        driver: ipam.Driver ?? '',
+        config: (ipam.Config ?? []).map(config => ({
+            subnet: config.Subnet,
+            gateway: config.Gateway,
+            ipRange: config.IPRange,
+        })),
+        options: ipam.Options ?? undefined,
+    };
+}
+
 function getDockerInstance(hostId?: string): Docker {
     if (!hostId || hostId === 'local-docker') {
         return docker; // Default local instance
@@ -324,12 +340,14 @@ export const dockerApiService = {
                 scope: n.Scope,
                 containers: containersOnNetwork,
                 composeProjects: Array.from(composeProjects),
-                ipam: networkDetails?.IPAM,
+                ipam: mapNetworkIpam(networkDetails?.IPAM),
                 internal: networkDetails?.Internal,
                 attachable: networkDetails?.Attachable,
                 ingress: networkDetails?.Ingress,
                 configOnly: networkDetails?.ConfigOnly,
-                configFrom: networkDetails?.ConfigFrom,
+                configFrom: networkDetails?.ConfigFrom ? {
+                    network: networkDetails.ConfigFrom.Network,
+                } : undefined,
                 options: networkDetails?.Options,
                 labels: networkDetails?.Labels,
                 created: networkDetails?.Created

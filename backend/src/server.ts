@@ -27,6 +27,10 @@ const log = {
     error: (message: string, ...args: any[]) => console.error(`[ERROR] ${new Date().toISOString()} ${message}`, ...args),
 };
 
+function routeParam(value: string | string[] | undefined): string {
+    return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+}
+
 app.use(cors());
 app.use(express.json());
 
@@ -166,7 +170,7 @@ app.get('/api/users/pending', authenticateToken, requireAdminOrOwner, asyncHandl
 }));
 
 app.post('/api/users/:id/approve', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
-    const userId = req.params.id;
+    const userId = routeParam(req.params.id);
     log.info(`Approving user ${userId}`);
     databaseService.updateUserApproval(userId, true);
     log.info(`User ${userId} approved successfully`);
@@ -174,7 +178,7 @@ app.post('/api/users/:id/approve', authenticateToken, requireAdminOrOwner, async
 }));
 
 app.put('/api/users/:id/role', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
-    const userId = req.params.id;
+    const userId = routeParam(req.params.id);
     const { role } = req.body;
     const currentUser = (req as any).user;
 
@@ -229,7 +233,7 @@ app.post('/api/users/transfer-ownership', authenticateToken, requireOwner, async
 }));
 
 app.delete('/api/users/:id', authenticateToken, requireAdminOrOwner, asyncHandler(async (req, res) => {
-    const userId = req.params.id;
+    const userId = routeParam(req.params.id);
     const currentUser = (req as any).user;
 
     if (userId === currentUser.id) {
@@ -304,8 +308,9 @@ app.post('/api/hosts', authenticateToken, async (req, res) => {
 
 app.put('/api/hosts/:id', authenticateToken, async (req, res) => {
     const { name, type, host, port, tls, socketProxy, apiKey } = req.body;
-    log.info(`Updating host ${req.params.id}: ${name}`, { type, host, port, tls, socketProxy, apiKey: apiKey ? '[REDACTED]' : undefined });
-    const updatedHost = databaseService.updateHost(req.params.id, name, type, host, port, tls, socketProxy, apiKey);
+    const hostId = routeParam(req.params.id);
+    log.info(`Updating host ${hostId}: ${name}`, { type, host, port, tls, socketProxy, apiKey: apiKey ? '[REDACTED]' : undefined });
+    const updatedHost = databaseService.updateHost(hostId, name, type, host, port, tls, socketProxy, apiKey);
 
     // Re-initialize Docker instance for the updated host
     try {
@@ -315,27 +320,29 @@ app.put('/api/hosts/:id', authenticateToken, async (req, res) => {
         log.error(`Failed to re-initialize Docker instance for updated host ${updatedHost.id}:`, error);
     }
 
-    log.info(`Host ${req.params.id} updated successfully`);
+    log.info(`Host ${hostId} updated successfully`);
     res.json(updatedHost);
 });
 
 app.delete('/api/hosts/:id', authenticateToken, (req, res) => {
-    log.info(`Removing host ${req.params.id}`);
-    databaseService.removeHost(req.params.id);
-    log.info(`Host ${req.params.id} removed successfully`);
+    const hostId = routeParam(req.params.id);
+    log.info(`Removing host ${hostId}`);
+    databaseService.removeHost(hostId);
+    log.info(`Host ${hostId} removed successfully`);
     res.status(204).send();
 });
 
 app.post('/api/hosts/:id/test', authenticateToken, asyncHandler(async (req, res) => {
-    const host = databaseService.getHosts().find(h => h.id === req.params.id);
+    const hostId = routeParam(req.params.id);
+    const host = databaseService.getHosts().find(h => h.id === hostId);
     if (!host) {
-        log.warn(`Host ${req.params.id} not found for connection test`);
+        log.warn(`Host ${hostId} not found for connection test`);
         return res.status(404).json({ error: 'Host not found' });
     }
-    log.info(`Testing connection to host ${req.params.id} (${host.name})`);
+    log.info(`Testing connection to host ${hostId} (${host.name})`);
     const result = await dockerApiService.testHostConnection(host);
-    databaseService.updateHostStatus(req.params.id, result.status);
-    log.info(`Connection test for host ${req.params.id} completed with status: ${result.status}`);
+    databaseService.updateHostStatus(hostId, result.status);
+    log.info(`Connection test for host ${hostId} completed with status: ${result.status}`);
     res.json(result);
 }));
 
@@ -419,82 +426,92 @@ app.get('/api/compose', authenticateToken, asyncHandler(async (req, res) => {
 
 app.get('/api/containers/:id/logs', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
-    log.debug(`Fetching logs for container ${req.params.id} on host ${hostId || 'local'}`);
-    const logs = await dockerApiService.getContainerLogs(req.params.id, hostId);
-    log.info(`Retrieved logs for container ${req.params.id} (${logs.length} characters)`);
+    const containerId = routeParam(req.params.id);
+    log.debug(`Fetching logs for container ${containerId} on host ${hostId || 'local'}`);
+    const logs = await dockerApiService.getContainerLogs(containerId, hostId);
+    log.info(`Retrieved logs for container ${containerId} (${logs.length} characters)`);
     res.type('text/plain').send(logs);
 }));
 
 app.get('/api/images/:id/inspect', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
-    log.debug(`Inspecting image ${req.params.id} on host ${hostId || 'local'}`);
-    const inspect = await dockerApiService.getImageInspect(req.params.id, hostId);
-    log.info(`Image ${req.params.id} inspection completed`);
+    const imageId = routeParam(req.params.id);
+    log.debug(`Inspecting image ${imageId} on host ${hostId || 'local'}`);
+    const inspect = await dockerApiService.getImageInspect(imageId, hostId);
+    log.info(`Image ${imageId} inspection completed`);
     res.json(inspect);
 }));
 
 app.get('/api/images/:id/history', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
-    log.debug(`Fetching history for image ${req.params.id} on host ${hostId || 'local'}`);
-    const history = await dockerApiService.getImageHistory(req.params.id, hostId);
-    log.info(`Retrieved ${history.length} history entries for image ${req.params.id}`);
+    const imageId = routeParam(req.params.id);
+    log.debug(`Fetching history for image ${imageId} on host ${hostId || 'local'}`);
+    const history = await dockerApiService.getImageHistory(imageId, hostId);
+    log.info(`Retrieved ${history.length} history entries for image ${imageId}`);
     res.json(history);
 }));
 
 app.get('/api/containers/:id/stats', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
-    log.debug(`Fetching stats for container ${req.params.id} on host ${hostId || 'local'}`);
-    const stats = await dockerApiService.getContainerStats(req.params.id, hostId);
-    log.info(`Container ${req.params.id} stats retrieved`);
+    const containerId = routeParam(req.params.id);
+    log.debug(`Fetching stats for container ${containerId} on host ${hostId || 'local'}`);
+    const stats = await dockerApiService.getContainerStats(containerId, hostId);
+    log.info(`Container ${containerId} stats retrieved`);
     res.json(stats);
 }));
 
 // --- Docker Actions ---
 app.post('/api/containers/:id/start', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
-    log.info(`Starting container ${req.params.id} on host ${hostId || 'local'}`);
-    await dockerApiService.startContainer(req.params.id, hostId);
-    log.info(`Container ${req.params.id} started successfully`);
+    const containerId = routeParam(req.params.id);
+    log.info(`Starting container ${containerId} on host ${hostId || 'local'}`);
+    await dockerApiService.startContainer(containerId, hostId);
+    log.info(`Container ${containerId} started successfully`);
     res.status(204).send();
 }));
 
 app.post('/api/containers/:id/stop', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
-    log.info(`Stopping container ${req.params.id} on host ${hostId || 'local'}`);
-    await dockerApiService.stopContainer(req.params.id, hostId);
-    log.info(`Container ${req.params.id} stopped successfully`);
+    const containerId = routeParam(req.params.id);
+    log.info(`Stopping container ${containerId} on host ${hostId || 'local'}`);
+    await dockerApiService.stopContainer(containerId, hostId);
+    log.info(`Container ${containerId} stopped successfully`);
     res.status(204).send();
 }));
 
 app.post('/api/containers/:id/restart', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
-    log.info(`Restarting container ${req.params.id} on host ${hostId || 'local'}`);
-    await dockerApiService.restartContainer(req.params.id, hostId);
-    log.info(`Container ${req.params.id} restarted successfully`);
+    const containerId = routeParam(req.params.id);
+    log.info(`Restarting container ${containerId} on host ${hostId || 'local'}`);
+    await dockerApiService.restartContainer(containerId, hostId);
+    log.info(`Container ${containerId} restarted successfully`);
     res.status(204).send();
 }));
 
 app.delete('/api/containers/:id', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
-    log.info(`Removing container ${req.params.id} on host ${hostId || 'local'}`);
-    await dockerApiService.removeContainer(req.params.id, hostId);
-    log.info(`Container ${req.params.id} removed successfully`);
+    const containerId = routeParam(req.params.id);
+    log.info(`Removing container ${containerId} on host ${hostId || 'local'}`);
+    await dockerApiService.removeContainer(containerId, hostId);
+    log.info(`Container ${containerId} removed successfully`);
     res.status(204).send();
 }));
 
 app.delete('/api/images/:id', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
-    log.info(`Removing image ${req.params.id} on host ${hostId || 'local'}`);
-    await dockerApiService.removeImage(req.params.id, hostId);
-    log.info(`Image ${req.params.id} removed successfully`);
+    const imageId = routeParam(req.params.id);
+    log.info(`Removing image ${imageId} on host ${hostId || 'local'}`);
+    await dockerApiService.removeImage(imageId, hostId);
+    log.info(`Image ${imageId} removed successfully`);
     res.status(204).send();
 }));
 
 app.delete('/api/volumes/:name', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
-    log.info(`Removing volume ${req.params.name} on host ${hostId || 'local'}`);
-    await dockerApiService.removeVolume(req.params.name, hostId);
-    log.info(`Volume ${req.params.name} removed successfully`);
+    const volumeName = routeParam(req.params.name);
+    log.info(`Removing volume ${volumeName} on host ${hostId || 'local'}`);
+    await dockerApiService.removeVolume(volumeName, hostId);
+    log.info(`Volume ${volumeName} removed successfully`);
     res.status(204).send();
 }));
 
@@ -524,9 +541,10 @@ app.post('/api/system/prune', authenticateToken, asyncHandler(async (req, res) =
 
 app.post('/api/containers/:id/exec', authenticateToken, asyncHandler(async (req, res) => {
     const hostId = req.query.hostId as string;
-    log.info(`Executing command in container ${req.params.id} on host ${hostId || 'local'}: ${JSON.stringify(req.body.command)}`);
-    const output = await dockerApiService.execCommand(req.params.id, req.body.command, hostId);
-    log.info(`Command executed in container ${req.params.id}, output length: ${output.length}`);
+    const containerId = routeParam(req.params.id);
+    log.info(`Executing command in container ${containerId} on host ${hostId || 'local'}: ${JSON.stringify(req.body.command)}`);
+    const output = await dockerApiService.execCommand(containerId, req.body.command, hostId);
+    log.info(`Command executed in container ${containerId}, output length: ${output.length}`);
     res.json({ output });
 }));
 
